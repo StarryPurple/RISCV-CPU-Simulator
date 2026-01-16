@@ -11,7 +11,4 @@ class CDBBroadcastArbiter(numBroadcaster: Int = 2) extends Module {
 }
 
 class CommonDataBus extends Module {
-  val io = IO(new Bundle {
-    val broadcaster = 
-  })
 }

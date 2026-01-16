@@ -3,14 +3,12 @@ package rvsim.config
 import chisel3._
 import chisel3.util._
 
+// RISC-V 32
 object Config {
-  val XLEN = 64                    // RISC-V 64
-  val ADDR_WIDTH = 64
+  val XLEN = 32 // data and addr width
   val INST_WIDTH = 32
   
   val MEM_LATENCY = 3
-  val MEM_DATA_WIDTH = 64
-  val MEM_ADDR_WIDTH = 64
   
   val ROB_ENTRIES = 32
   val ROB_IDX_WIDTH = 5            // log2Ceil(ROB_ENTRIES)

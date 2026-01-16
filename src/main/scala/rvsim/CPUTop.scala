@@ -19,5 +19,13 @@ class CPUTop extends Module {
   val fp   = Module(new commit.FlushPipeline)
   val cdb  = Module(new commit.CommonDataBus)
 
-  
+
+}
+
+object GenerateVerilog extends App {
+  import _root_.circt.stage.ChiselStage
+  ChiselStage.emitSystemVerilogFile(
+    new CPUTop,
+    Array("--target-dir", "generated")
+  )
 }
