@@ -1,10 +1,10 @@
-package rvsim.execution
+package rvsim.commit
 
 import chisel3._
 import chisel3.util._
 import rvsim.config.Config
 import rvsim.bundles._
 
-class LoadStoreBuffer extends Module {
+class RegisterFile extends Module {
   
 }
