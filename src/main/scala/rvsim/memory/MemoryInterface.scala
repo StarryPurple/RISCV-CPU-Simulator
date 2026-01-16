@@ -5,11 +5,11 @@ import chisel3.util._
 import rvsim.config.Config
 import rvsim.bundles._
 
-// 2 for IF and LSB
-class MemoryReqArbiter(numReq: Int = 2) extends Module {
-
-}
-
 class MemoryInterface extends Module {
-
+  val io = IO(new Bundle {
+    val ifInput = Flipped(new MemoryRequest)
+    val lsbInput = Flipped(new MemoryRequest)
+    val ifOutput = new MemoryResponse
+    val lsbOutput = new MemoryResponse
+  })
 }
