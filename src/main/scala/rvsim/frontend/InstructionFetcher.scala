@@ -54,6 +54,7 @@ class InstructionFetcher extends Module {
         gotInstr := false.B
         gotPred := false.B
         state := State.sWaitResp
+        printf("IF: Request sent. Waiting Resp.\n")
       }
     }
     is(State.sWaitResp) {
@@ -67,6 +68,7 @@ class InstructionFetcher extends Module {
       }
       when((gotInstr || io.miInput.resp.valid) && (gotPred || io.predInput.resp.valid)) {
         state := State.sDecode
+        printf("IF: Resp collected. Instr is %d. Next pc is %d. Send to Decoder.\n", instrBuffer, predictedNextPC)
       }
     }
     is(State.sDecode) {
@@ -77,6 +79,7 @@ class InstructionFetcher extends Module {
       when(io.decOutput.req.fire) {
         pc    := predictedNextPC
         state := State.sRequest
+        printf("IF: Sent to Decoder. Request next instr.\n")
       }
     }
   }
@@ -85,6 +88,7 @@ class InstructionFetcher extends Module {
     pc := io.flushInput.req.bits.targetPC
     state := State.sRequest
     io.flushInput.flushed := true.B
+    printf("IF: flush.")
   } .otherwise {
     io.flushInput.flushed := false.B
   }

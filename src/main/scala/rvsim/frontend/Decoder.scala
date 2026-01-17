@@ -74,6 +74,8 @@ class Decoder extends Module {
   d.needsRs2 := (isALUReg || isStore || isBranch)
   d.writesRd := (rd =/= 0.U) && (isALUReg || isALUImm || isLoad || isJal || isJalr || isLui || isAuipc)
 
+  printf("Decoder: decoded instr at pc %d\n", d.pc)
+
   io.duOutput.decodedInstr.valid := io.ifInput.req.valid
   io.ifInput.req.ready           := io.duOutput.decodedInstr.ready
 }

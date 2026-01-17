@@ -7,6 +7,7 @@ import rvsim.bundles._
 
 class CPUTop extends Module {
   val io = IO(new Bundle {
+    val loadPort = Input(new memory.MILoadPort)
     val isTerminate = Output(Bool())
     val debug_x10 = Output(UInt(32.W))
   })
@@ -67,6 +68,8 @@ class CPUTop extends Module {
   rs.io.flushInput   <> fp.io.rsOutput
   du.io.flushInput   <> fp.io.duOutput
 
+  // input & output
+  mi.io.loadPort := io.loadPort
   io.isTerminate := rob.io.isTerminate
   io.debug_x10   := rf.io.debug_x10
 

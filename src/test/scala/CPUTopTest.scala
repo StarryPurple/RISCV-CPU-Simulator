@@ -6,16 +6,53 @@ import chisel3._
 class CPUTopSpec extends AnyFlatSpec with ChiselScalatestTester {
   "CPUTop" should "calculate sum and terminate" in {
     test(new CPUTop).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+
+      val hexPath = "src/main/resources/program.hex"
+      val source = scala.io.Source.fromFile(hexPath)
+      val lines = source.getLines().toList
+      source.close()
+
+      var currentAddr = 0
+      var byteGroup = Array.fill(4)("00")
+      var count = 0
+
+      for (line <- lines) {
+        if (line.startsWith("@")) {
+          currentAddr = Integer.parseInt(line.substring(1), 16)
+        } else {
+          val bytes = line.split(" ").filter(_.nonEmpty)
+          for (b <- bytes) {
+            byteGroup(count) = b
+            count += 1
+            if(count == 4) {
+              val word = byteGroup.zipWithIndex.map { case (b, i) =>
+                BigInt(b, 16) << (i * 8)
+              }.sum
+              dut.io.loadPort.en.poke(true.B)
+              dut.io.loadPort.addr.poke(currentAddr.U)
+              dut.io.loadPort.data.poke(word.U)
+              println("Try to write instr")
+              dut.clock.step(1)
+
+              currentAddr += 4
+              count = 0
+            }
+          }
+        }
+      }
+
+      dut.io.loadPort.en.poke(false.B)
+      println("Instr memory load complete")
       
-      // 设置最大仿真时钟周期，防止死循环
-      val maxCycles = 10000
+      val maxCycles = 100
       var cycles = 0
       var halted = false
 
       println("--- Simulation Started ---")
 
       while (!halted && cycles < maxCycles) {
-        println("New step")
+        print("New cycle: ")
+        println(cycles)
         if (dut.io.isTerminate.peek().litToBoolean) {
           val finalX10 = dut.io.debug_x10.peek().litValue
           println(s"Successfully Halted at cycle $cycles")
