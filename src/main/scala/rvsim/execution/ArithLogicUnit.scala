@@ -56,10 +56,10 @@ class ArithLogicUnit extends Module {
 
   val finalResult = MuxCase(0.U, Seq(
     e.isALU    -> aluResult,
-    e.isMUL    -> mulResult,
-    e.isDIV    -> divResult,
-    e.isJUMP   -> jumpTarget,
-    e.isBRANCH -> brTaken.asUInt
+    e.isMul    -> mulResult,
+    e.isDiv    -> divResult,
+    e.isJump   -> jumpTarget,
+    e.isBranch -> brTaken.asUInt
   ))
 
   io.cdbOutput.req.valid        := validReg

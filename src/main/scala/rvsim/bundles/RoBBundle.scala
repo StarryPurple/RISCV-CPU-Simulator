@@ -47,10 +47,16 @@ class StoreCommitInfo extends Bundle {
 
 class RoBToDU extends Bundle {
   val allocResp = Decoupled(new RoBAllocResp)
+  val commitMsg = Valid(new RoBCommitMsg)
 }
 
 class RoBAllocResp extends Bundle {
   val robIdx = UInt(Config.ROB_IDX_WIDTH.W)
+}
+
+class RoBCommitMsg extends Bundle {
+  val regWrite = Valid(new RegWriteInfo)
+
 }
 
 class DUToRoB extends Bundle {

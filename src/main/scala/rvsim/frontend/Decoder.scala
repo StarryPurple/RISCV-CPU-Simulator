@@ -50,6 +50,8 @@ class Decoder extends Module {
   d.funct3 := funct3
   d.funct7 := funct7
 
+  d.predPC := io.ifInput.req.bits.predPC
+
   d.imm := MuxCase(0.U, Seq(
     (isALUImm || isLoad || isJalr) -> immI,
     isStore                        -> immS,
@@ -57,14 +59,16 @@ class Decoder extends Module {
     (isLui || isAuipc)             -> immU,
     isJal                          -> immJ
   ))
+  // not branch/jal: rs2 is still used.
+  d.useImm := isALUImm || isLui || isAuipc || isStore || isLoad || isJalr
 
   d.isALU    := (isALUImm || (isALUReg && !isM) || isLui || isAuipc)
-  d.isMUL    := isM && (funct3(2) === 0.U)
-  d.isDIV    := isM && (funct3(2) === 1.U)
-  d.isBRANCH := isBranch
-  d.isJUMP   := (isJal || isJalr)
-  d.isLOAD   := isLoad
-  d.isSTORE  := isStore
+  d.isMul    := isM && (funct3(2) === 0.U)
+  d.isDiv    := isM && (funct3(2) === 1.U)
+  d.isBranch := isBranch
+  d.isJump   := (isJal || isJalr)
+  d.isLoad   := isLoad
+  d.isStore  := isStore
 
   d.needsRs1 := (isALUReg || isALUImm || isLoad || isStore || isBranch || isJalr)
   d.needsRs2 := (isALUReg || isStore || isBranch)

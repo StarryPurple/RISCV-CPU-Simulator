@@ -19,24 +19,24 @@ class ROBEntry extends Bundle {
 
 class ReorderBuffer extends Module {
   val io = IO(new Bundle {
-    val predOutput = new RoBToPred
-    val rfOutput = new RoBToRF
-    val duOutput = new RoBToDU
-    val lsbOutput = new RoBToLSB
+    val duInput     = Flipped(new DUToRoB)
+    val duOutput    = new RoBToDU
+    val rfOutput    = new RoBToRF
+    val lsbOutput   = new RoBToLSB 
+    val predOutput  = new RoBToPred
     val flushOutput = new FlushAnnouncer
-    val duInput = Flipped(new DUToRoB)
-    val cdbInput = new CDBListener
-    val isTerminate = Bool()
+    val cdbInput    = new CDBListener
+    val isTerminate = Output(Bool())
   })
-  io.isTerminate := false.B
 
   val robEntries = RegInit(VecInit(Seq.fill(Config.ROB_ENTRIES)(0.U.asTypeOf(new ROBEntry))))
-  val head = RegInit(0.U(Config.ROB_IDX_WIDTH.W))
-  val tail = RegInit(0.U(Config.ROB_IDX_WIDTH.W))
-  val full = RegInit(false.B)
-  val empty = (head === tail) && !full
-  val isFlushing = RegInit(false.B)
+  val head  = RegInit(0.U(Config.ROB_IDX_WIDTH.W))
+  val tail  = RegInit(0.U(Config.ROB_IDX_WIDTH.W))
+  val count = RegInit(0.U(log2Ceil(Config.ROB_ENTRIES + 1).W))
 
+  val full  = count === Config.ROB_ENTRIES.U
+  val empty = count === 0.U
+  val isFlushing = RegInit(false.B)
 
   val canAllocate = !full && !isFlushing
   io.duInput.allocReq.ready := canAllocate
@@ -44,20 +44,20 @@ class ReorderBuffer extends Module {
   io.duOutput.allocResp.bits.robIdx := tail
 
   when(io.duInput.allocReq.fire) {
-    robEntries(tail).valid    := true.B
-    robEntries(tail).ready    := false.B
-    robEntries(tail).pc       := io.duInput.allocReq.bits.pc
-    robEntries(tail).rd       := io.duInput.allocReq.bits.rd
+    val newEntry = robEntries(tail)
+    newEntry.valid    := true.B
+    newEntry.ready    := false.B
+    newEntry.pc       := io.duInput.allocReq.bits.pc
+    newEntry.rd       := io.duInput.allocReq.bits.rd
+    newEntry.instr    := io.duInput.allocReq.bits.instr
+    newEntry.predPC   := io.duInput.allocReq.bits.predPC
     
     val op = io.duInput.allocReq.bits.opcode
-    robEntries(tail).isLS     := (op === "b0000011".U || op === "b0100011".U)
-    robEntries(tail).isBranch := (op === "b1100011".U || op === "b1101111".U || op === "b1100111".U)
-
-    robEntries(tail).predPC   := io.duInput.allocReq.bits.predPC
-    robEntries(tail).instr    := io.duInput.allocReq.bits.instr
+    newEntry.isLS     := (op === "b0000011".U || op === "b0100011".U)
+    newEntry.isBranch := (op === "b1100011".U || op === "b1101111".U || op === "b1100111".U)
 
     tail := tail + 1.U
-    when((tail + 1.U) === head) { full := true.B }
+    count := count + 1.U
   }
 
   when(io.cdbInput.in.valid) {
@@ -71,44 +71,53 @@ class ReorderBuffer extends Module {
   val commitEntry = robEntries(head)
   val canCommit = commitEntry.valid && commitEntry.ready && !empty && !isFlushing
 
-  io.rfOutput.regWrite.valid := false.B
-  io.lsbOutput.storeCommit.valid := false.B
-  io.predOutput.info.valid := false.B
-  io.flushOutput.req.valid := false.B
+  // default
+  io.rfOutput.regWrite.valid      := false.B
+  io.lsbOutput.storeCommit.valid  := false.B
+  io.predOutput.info.valid        := false.B
+  io.flushOutput.req.valid        := false.B
+  io.duOutput.commitMsg.valid     := false.B
+  io.isTerminate                  := false.B
 
   when(canCommit) {
-    val realPC = commitEntry.value 
-    val isMispredicted = commitEntry.isBranch && (realPC =/= (commitEntry.predPC))
+    val realTargetPC = commitEntry.value 
+    val isMispredicted = commitEntry.isBranch && (realTargetPC =/= commitEntry.predPC)
 
     when(isMispredicted) {
       io.flushOutput.req.valid := true.B
-      io.flushOutput.req.bits.targetPC := realPC
+      io.flushOutput.req.bits.targetPC := realTargetPC
       io.flushOutput.req.bits.flushFromRoBIdx.valid := true.B
       io.flushOutput.req.bits.flushFromRoBIdx.bits  := head
       isFlushing := true.B
     } .otherwise {
+      val isStore = commitEntry.isLS && (commitEntry.instr(5) === 1.B) 
+      val isLoad  = commitEntry.isLS && (commitEntry.instr(5) === 0.B)
+      
+      val shouldWriteRF = (commitEntry.rd =/= 0.U) && (!commitEntry.isLS || isLoad) && !commitEntry.isBranch
 
-      // RF
-      when(commitEntry.rd =/= 0.U && !commitEntry.isLS && !commitEntry.isBranch) {
+      when(shouldWriteRF) {
         io.rfOutput.regWrite.valid := true.B
         io.rfOutput.regWrite.bits.rd     := commitEntry.rd
         io.rfOutput.regWrite.bits.data   := commitEntry.value
         io.rfOutput.regWrite.bits.robIdx := head
         io.rfOutput.regWrite.bits.pc     := commitEntry.pc
+
+        io.duOutput.commitMsg.valid := true.B
+        io.duOutput.commitMsg.bits.regWrite.valid := true.B
+        io.duOutput.commitMsg.bits.regWrite.bits.rd := commitEntry.rd
+        io.duOutput.commitMsg.bits.regWrite.bits.robIdx := head
       }
 
-      // Pred
+      when(isStore) {
+        io.lsbOutput.storeCommit.valid := true.B
+        io.lsbOutput.storeCommit.bits.robIdx := head
+      }
+
       when(commitEntry.isBranch) {
         io.predOutput.info.valid := true.B
         io.predOutput.info.bits.pc := commitEntry.pc
-        io.predOutput.info.bits.target := realPC
-        io.predOutput.info.bits.taken := (realPC =/= (commitEntry.pc + 4.U))
-      }
-
-      // LSB store commit
-      when(commitEntry.isLS) {
-        io.lsbOutput.storeCommit.valid := true.B
-        io.lsbOutput.storeCommit.bits.robIdx := head
+        io.predOutput.info.bits.target := realTargetPC
+        io.predOutput.info.bits.taken := (realTargetPC =/= (commitEntry.pc + 4.U))
       }
 
       when(commitEntry.instr === Config.TERMINATE_INSTR.U) {
@@ -117,13 +126,15 @@ class ReorderBuffer extends Module {
 
       robEntries(head).valid := false.B
       head := head + 1.U
-      full := false.B
+      count := count - 1.U
     }
   }
 
-  // flush
   when(isFlushing && io.flushOutput.flushed) {
     robEntries.foreach(_.valid := false.B)
-    head := 0.U; tail := 0.U; full := false.B; isFlushing := false.B
+    head := 0.U
+    tail := 0.U
+    count := 0.U
+    isFlushing := false.B
   }
 }

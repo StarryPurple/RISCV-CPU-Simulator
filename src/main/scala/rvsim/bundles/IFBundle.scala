@@ -17,6 +17,7 @@ class IFToDecoder extends Bundle {
 class IFToDecoderRequest extends Bundle {
   val pc = UInt(Config.XLEN.W)
   val instr = UInt(32.W)
+  val predPC = UInt(Config.XLEN.W) // next pc to take
 }
 
 class IFToPred extends Bundle {

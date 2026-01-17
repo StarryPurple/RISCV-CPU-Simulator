@@ -15,12 +15,6 @@ class ALUEntry extends Bundle {
   val opcode = UInt(7.W)
   val funct3 = UInt(3.W)
   val funct7 = UInt(7.W)
-  val isALU = Bool()
-  val isMUL = Bool()
-  val isDIV = Bool()
-  val isBRANCH = Bool()
-  val isJUMP = Bool()
-  
   val src1 = UInt(Config.XLEN.W)
   val src2 = UInt(Config.XLEN.W)                 // if used
   val imm = UInt(Config.XLEN.W)                  // if used
@@ -30,9 +24,15 @@ class ALUEntry extends Bundle {
   val robIdx = UInt(Config.ROB_IDX_WIDTH.W)      // Assigned ROB index
   
   val useImm = Bool()                            // use imm / rs2?
-  val isSigned = Bool()
+  // val isSigned = Bool()
   val pc = UInt(Config.XLEN.W)                   // branch prediction
   val predictedNextPC = UInt(Config.XLEN.W)      // for debug
+  
+  val isALU = Bool()
+  val isMul = Bool()
+  val isDiv = Bool()
+  val isBranch = Bool()
+  val isJump = Bool()
   
   // for debug
   val instr = UInt(32.W)

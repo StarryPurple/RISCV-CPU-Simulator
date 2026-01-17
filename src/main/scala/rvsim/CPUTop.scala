@@ -47,9 +47,9 @@ class CPUTop extends Module {
   cdb.io.aluInput    <> alu.io.cdbOutput
   cdb.io.lsbInput    <> lsb.io.cdbOutput
 
-  rs.io.cdbInput.in  := cdb.io.output
-  rob.io.cdbInput.in := cdb.io.output
-  du.io.cdbInput.in  := cdb.io.output
+  rs.io.cdbInput.in  := cdb.io.output.in
+  rob.io.cdbInput.in := cdb.io.output.in
+  du.io.cdbInput.in  := cdb.io.output.in
 
   rob.io.rfOutput    <> rf.io.robInput
   rob.io.predOutput  <> pred.io.robInput

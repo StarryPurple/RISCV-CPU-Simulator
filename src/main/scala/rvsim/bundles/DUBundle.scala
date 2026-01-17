@@ -19,6 +19,8 @@ class DecoderToDU extends Bundle {
 class DecodedInstrInfo extends Bundle {
   val pc = UInt(Config.XLEN.W)              // Instruction PC
   val instr = UInt(32.W)                    // Raw instruction word
+
+  val predPC = UInt(Config.XLEN.W)          // predict of next pc
   
   // Decoded fields
   val opcode = UInt(7.W)                    // Opcode
@@ -28,15 +30,17 @@ class DecodedInstrInfo extends Bundle {
   val imm = UInt(Config.XLEN.W)             // Sign-extended immediate
   val funct3 = UInt(3.W)                    // Funct3 field
   val funct7 = UInt(7.W)                    // Funct7 field
+
+  val useImm = Bool()
   
   // Instruction type flags
   val isALU = Bool()                        // ALU instruction
-  val isMUL = Bool()                        // Multiply instruction
-  val isDIV = Bool()                        // Divide instruction
-  val isBRANCH = Bool()                     // Branch instruction
-  val isJUMP = Bool()                       // Jump instruction
-  val isLOAD = Bool()                       // Load instruction
-  val isSTORE = Bool()                      // Store instruction
+  val isMul = Bool()                        // Multiply instruction
+  val isDiv = Bool()                        // Divide instruction
+  val isBranch = Bool()                     // Branch instruction
+  val isJump = Bool()                       // Jump instruction
+  val isLoad = Bool()                       // Load instruction
+  val isStore = Bool()                      // Store instruction
   
   // Control signals
   val needsRs1 = Bool()                     // Requires rs1 operand
@@ -47,34 +51,13 @@ class DecodedInstrInfo extends Bundle {
 class DUToRF extends Bundle {
   // arch reg for rs1 and rs2
   val readReq = Vec(2, Valid(UInt(5.W)))
-  
-  // possible new arch reg for rd
-  val allocReq = Valid(new Bundle {
-    val archReg = UInt(5.W)
-  })
 }
 
 class RFToDU extends Bundle {
   // rs1/rs2 read response
   val readRsp = Vec(2, new Bundle {
-    val ready = Bool()                               // data is ready and not waiting for CDB/ROB
-    val data = UInt(Config.XLEN.W)                   // valid if ready
-    val physReg = UInt(Config.PHYS_REG_ID_WIDTH.W)   // phys reg it maps
-    val waitingRobIdx = UInt(Config.ROB_IDX_WIDTH.W) // if not ready, which ROB entry we're waiting for
+    val data = UInt(Config.XLEN.W)
   })
-  
-  // Physical register allocation response
-  val allocRsp = Valid(new Bundle {                   // if successfully allocated...
-    val archReg = UInt(5.W)                           // architectural register that was allocated
-    val physReg = UInt(Config.PHYS_REG_ID_WIDTH.W)    // physical register assigned
-  })
-  
-  // Status and feedback information
-  val status = new Bundle {
-    val freePhysRegs = UInt(log2Ceil(Config.PHYS_REG_COUNT + 1).W) // Number of free physical registers
-    val canAcceptAlloc = Bool()             // Whether RF can accept new allocation requests
-    val readPortsReady = Vec(2, Bool())     // Whether read ports are available (not busy)
-  }
 }
 
 class DUToRS extends Bundle {
@@ -98,11 +81,21 @@ class RSEntry extends Bundle {
   val robIdx = UInt(Config.ROB_IDX_WIDTH.W)      // Assigned ROB index
   
   // Instruction type
-  val instrType = UInt(3.W)                     // 0:ALU, 1:MUL, 2:DIV, 3:BRANCH
+  // val instrType = UInt(3.W)                   // 0:ALU, 1:MUL, 2:DIV, 3:BRANCH
   
   // Debug information
   val pc = UInt(Config.XLEN.W)
   val instr = UInt(32.W)
+  
+  // sync with ALUEntry
+  val useImm = Bool()                            // use imm / rs2?
+  val predictedNextPC = UInt(Config.XLEN.W)
+  
+  val isALU = Bool()
+  val isMul = Bool()
+  val isDiv = Bool()
+  val isBranch = Bool()
+  val isJump = Bool()
 }
 
 class OperandInfo extends Bundle {

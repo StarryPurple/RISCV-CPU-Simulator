@@ -62,9 +62,10 @@ class InstructionFetcher extends Module {
       }
     }
     is(State.sDecode) {
-      io.decOutput.req.valid      := true.B
-      io.decOutput.req.bits.instr := instrBuffer
-      io.decOutput.req.bits.pc    := currentPC
+      io.decOutput.req.valid       := true.B
+      io.decOutput.req.bits.instr  := instrBuffer
+      io.decOutput.req.bits.pc     := currentPC
+      io.decOutput.req.bits.predPC := predictedNextPC
       when(io.decOutput.req.fire) {
         pc    := predictedNextPC
         state := State.sRequest

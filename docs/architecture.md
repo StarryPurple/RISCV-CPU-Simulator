@@ -1,6 +1,6 @@
 ## Overall design
 
-Memory: Total 1 MB, .text (instr) start at 0x0, .data start at 0x00400000, stack start at 0x10000000.
+Memory: Total 8 MB, .text (instr) start at 0x0
 
 RAM has 3-cycle latency, for:
 

@@ -5,9 +5,9 @@ import chisel3.util._
 
 // RISC-V 32
 object Config {
-  val TERMINATE_INSTR = 0xfe000fa3 // sb x0, -1(x0)
-  
-  val MEM_SIZE = 8 * 1024 * 1024 // 8MB
+  val TERMINATE_INSTR = 0xfe000fa3L // sb x0, -1(x0)
+
+  val MEM_SIZE = 16 * 1024 // 16KB
 
   val XLEN = 32 // data and addr width
   val DATA_WIDTH = 32
