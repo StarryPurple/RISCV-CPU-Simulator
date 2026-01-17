@@ -10,26 +10,26 @@ class RegisterAliasTable extends Module {
   val io = IO(new Bundle {
     val rs1 = Input(UInt(5.W))
     val rs2 = Input(UInt(5.W))
-    val rs1_tag  = Output(UInt(Config.ROB_ID_WIDTH.W))
+    val rs1_tag  = Output(UInt(Config.ROB_IDX_WIDTH.W))
     val rs1_wait = Output(Bool())
-    val rs2_tag  = Output(UInt(Config.ROB_ID_WIDTH.W))
+    val rs2_tag  = Output(UInt(Config.ROB_IDX_WIDTH.W))
     val rs2_wait = Output(Bool())
 
     // add mapping when writing new archReg
     val update_en = Input(Bool())
     val rd        = Input(UInt(5.W))
-    val robIdx    = Input(UInt(Config.ROB_ID_WIDTH.W))
+    val robIdx    = Input(UInt(Config.ROB_IDX_WIDTH.W))
 
     // delete mapping when commiting
     val commit_en = Input(Bool())
     val commit_rd = Input(UInt(5.W))
-    val commit_robIdx = Input(UInt(Config.ROB_ID_WIDTH.W))
+    val commit_robIdx = Input(UInt(Config.ROB_IDX_WIDTH.W))
 
     val flush = Input(Bool())
   })
 
   // RegIdx -> robIdx
-  val tagTable = RegInit(VecInit(Seq.fill(32)(0.U(Config.ROB_ID_WIDTH.W))))
+  val tagTable = RegInit(VecInit(Seq.fill(32)(0.U(Config.ROB_IDX_WIDTH.W))))
   // That Register State Table (RST). Is reg still busy?
   val busyTable = RegInit(VecInit(Seq.fill(32)(false.B)))
 

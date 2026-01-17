@@ -5,7 +5,7 @@ import chisel3.util._
 import rvsim.config.Config
 import rvsim.bundles._
 
-class ExecuteUnit extends Module {
+class ArithLogicUnit extends Module {
   val io = IO(new Bundle {
     val rsInput = Flipped(new DUToRS)
     val cdbOutput = new CDBSource

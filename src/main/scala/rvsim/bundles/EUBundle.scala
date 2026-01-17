@@ -1,5 +1,5 @@
 /* Related:
-  RS -> EU
+  RS -> ALU
  */
 package rvsim.bundles
 
@@ -7,11 +7,11 @@ import chisel3._
 import chisel3.util._
 import rvsim.config.Config
 
-class RSToEU extends Bundle {
-  val entry = Valid(new EUEntry)
+class RSToALU extends Bundle {
+  val entry = Valid(new ALUEntry)
 }
 
-class EUEntry extends Bundle {
+class ALUEntry extends Bundle {
   val opcode = UInt(7.W)
   val funct3 = UInt(3.W)
   val funct7 = UInt(7.W)

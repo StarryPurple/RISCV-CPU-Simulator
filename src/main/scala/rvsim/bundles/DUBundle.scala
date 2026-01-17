@@ -79,12 +79,6 @@ class RFToDU extends Bundle {
 
 class DUToRS extends Bundle {
   val allocReq = Decoupled(new RSEntry)        // RS entry allocation request
-  
-  // Status feedback
-  val status = Output(new Bundle {
-    val freeEntries = UInt(log2Ceil(Config.RS_ENTRIES + 1).W) // Free RS entries
-    val canAccept = Bool()                    // Can accept new instruction
-  })
 }
 
 class RSEntry extends Bundle {
@@ -120,12 +114,6 @@ class OperandInfo extends Bundle {
 // Dispatch Unit -> Load/Store Buffer
 class DUToLSB extends Bundle {
   val allocReq = Decoupled(new LSBEntry)        // LSB entry allocation request
-  
-  // Status feedback
-  val status = Output(new Bundle {
-    val freeEntries = UInt(log2Ceil(Config.LSB_ENTRIES + 1).W) // Free LSB entries
-    val canAccept = Bool()                      // Can accept new instruction
-  })
 }
 
 class LSBEntry extends Bundle {

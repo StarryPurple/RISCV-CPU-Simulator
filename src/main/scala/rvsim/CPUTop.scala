@@ -15,7 +15,7 @@ class CPUTop extends Module {
   val rf   = Module(new commit.RegisterFile)
   val rs   = Module(new execution.ReservationStation)
   val rob  = Module(new commit.ReorderBuffer)
-  val eu   = Module(new execution.ExecuteUnit)
+  val alu  = Module(new execution.ArithLogicUnit)
   val fp   = Module(new commit.FlushPipeline)
   val cdb  = Module(new commit.CommonDataBus)
 
@@ -39,12 +39,12 @@ class CPUTop extends Module {
   du.io.rsOutput     <> rs.io.duInput
   du.io.lsbOutput    <> lsb.io.duInput
 
-  eu.io.rsInput      <> rs.io.euOutput
+  alu.io.rsInput      <> rs.io.aluOutput
   
   mi.io.lsbInput     <> lsb.io.miOutput
   lsb.io.miInput     <> mi.io.lsbOutput
 
-  cdb.io.duInput     <> eu.io.cdbOutput
+  cdb.io.duInput     <> alu.io.cdbOutput
   cdb.io.lsbInput    <> lsb.io.cdbOutput
 
   rs.io.cdbInput.in  := cdb.io.output
