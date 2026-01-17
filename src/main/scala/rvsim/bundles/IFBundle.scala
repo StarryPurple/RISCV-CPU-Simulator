@@ -33,6 +33,6 @@ class PredToIF extends Bundle {
 }
 
 class PredToIFResponse extends Bundle {
-  val taken = Bool()
-  val target = UInt(Config.XLEN.W)
+  val predTaken = Bool()
+  val targetPC = UInt(Config.XLEN.W)
 }

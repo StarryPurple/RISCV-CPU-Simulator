@@ -5,7 +5,10 @@ import chisel3.util._
 
 // RISC-V 32
 object Config {
+  val MEM_SIZE = 8 * 1024 * 1024 // 8MB
+
   val XLEN = 32 // data and addr width
+  val DATA_WIDTH = 32
   val INST_WIDTH = 32
   
   val MEM_LATENCY = 3
