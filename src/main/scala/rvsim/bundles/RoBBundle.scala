@@ -69,4 +69,6 @@ class RoBAllocReq extends Bundle {
   val imm = UInt(Config.XLEN.W)             // Sign-extended immediate
   val funct3 = UInt(3.W)                    // Funct3 field
   val funct7 = UInt(7.W)                    // Funct7 field
+
+  val predPC = UInt(Config.XLEN.W)
 }

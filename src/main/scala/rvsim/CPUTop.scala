@@ -39,12 +39,12 @@ class CPUTop extends Module {
   du.io.rsOutput     <> rs.io.duInput
   du.io.lsbOutput    <> lsb.io.duInput
 
-  alu.io.rsInput      <> rs.io.aluOutput
+  alu.io.rsInput     <> rs.io.aluOutput
   
   mi.io.lsbInput     <> lsb.io.miOutput
   lsb.io.miInput     <> mi.io.lsbOutput
 
-  cdb.io.duInput     <> alu.io.cdbOutput
+  cdb.io.aluInput    <> alu.io.cdbOutput
   cdb.io.lsbInput    <> lsb.io.cdbOutput
 
   rs.io.cdbInput.in  := cdb.io.output
@@ -61,6 +61,11 @@ class CPUTop extends Module {
   lsb.io.flushInput  <> fp.io.lsbOutput
   rs.io.flushInput   <> fp.io.rsOutput
   du.io.flushInput   <> fp.io.duOutput
+
+  when(rob.io.isTerminate) {
+    printf("Result: %d\n", rf.io.debug_x10)
+    stop()
+  }
 }
 
 object GenerateVerilog extends App {

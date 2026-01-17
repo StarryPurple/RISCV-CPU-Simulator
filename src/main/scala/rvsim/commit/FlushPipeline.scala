@@ -13,4 +13,19 @@ class FlushPipeline extends Module {
     val rsOutput = Flipped(new FlushListener)
     val duOutput = Flipped(new FlushListener)
   })
+
+  val flushReq = io.robInput.req
+  
+  io.ifOutput.req  := flushReq
+  io.lsbOutput.req := flushReq
+  io.rsOutput.req  := flushReq
+  io.duOutput.req  := flushReq
+
+  val allModulesFlushed = 
+    io.ifOutput.flushed && 
+    io.lsbOutput.flushed && 
+    io.rsOutput.flushed && 
+    io.duOutput.flushed
+
+  io.robInput.flushed := flushReq.valid && allModulesFlushed
 }

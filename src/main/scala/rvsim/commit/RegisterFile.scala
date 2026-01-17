@@ -10,5 +10,7 @@ class RegisterFile extends Module {
     val duInput = Flipped(new DUToRF)
     val robInput = Flipped(new RoBToRF)
     val duOutput = new RFToDU
+
+    val debug_x10 = UInt(Config.XLEN.W)
   })
 }
