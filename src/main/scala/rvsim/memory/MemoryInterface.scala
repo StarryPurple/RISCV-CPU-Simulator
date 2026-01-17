@@ -12,12 +12,6 @@ class MemoryInterface extends Module {
     val lsbInput = Flipped(new MemoryRequest)
     val ifOutput = new MemoryResponse
     val lsbOutput = new MemoryResponse
-
-    val loadPort = Flipped(new Bundle {
-      val en   = Input(Bool())
-      val addr = Input(UInt(Config.XLEN.W))
-      val data = Input(UInt(Config.DATA_WIDTH.W))
-    })
   })
 
   val mem = SyncReadMem(Config.MEM_SIZE / 4, Vec(4, UInt(8.W))) // divide as bytes
@@ -32,8 +26,8 @@ class MemoryInterface extends Module {
   val readDataReg = Reg(UInt(Config.XLEN.W))
   val isWriteReg = RegInit(false.B)
 
-  lsbReq.ready := !busy && !io.loadPort.en
-  ifReq.ready  := !busy && !io.loadPort.en && !lsbReq.valid
+  lsbReq.ready := !busy
+  ifReq.ready  := !busy && !lsbReq.valid
 
   val chooseLsb = lsbReq.valid
   val activeReq = Mux(chooseLsb, lsbReq.bits, ifReq.bits)
@@ -43,22 +37,16 @@ class MemoryInterface extends Module {
   val writeDataVec = VecInit(Seq.tabulate(4)(i => activeReq.data(8*i+7, 8*i)))
   val byteMask = activeReq.byteEnable.asBools
 
-  when(io.loadPort.en) {
-    mem.write(io.loadPort.addr(22, 2), 
-              VecInit(Seq.tabulate(4)(i => io.loadPort.data(8*i+7, 8*i))), 
-              Seq.fill(4)(true.B))
-  } .otherwise {
-    when(!busy && hasReq) {
-      busy := true.B
-      count := (Config.MEM_LATENCY.U - 1.U)
-      respTargetIsLsb := chooseLsb
-      isWriteReg := activeReq.isWrite
+  when(!busy && hasReq) {
+    busy := true.B
+    count := (Config.MEM_LATENCY.U - 1.U)
+    respTargetIsLsb := chooseLsb
+    isWriteReg := activeReq.isWrite
 
-      when(activeReq.isWrite) {
-        mem.write(wordAddr, writeDataVec, byteMask)
-      } .otherwise {
-        readDataReg := mem.read(wordAddr).asUInt
-      }
+    when(activeReq.isWrite) {
+      mem.write(wordAddr, writeDataVec, byteMask)
+    } .otherwise {
+      readDataReg := mem.read(wordAddr).asUInt
     }
   }
 

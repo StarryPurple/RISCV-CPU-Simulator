@@ -73,10 +73,15 @@ class ReorderBuffer extends Module {
 
   // default
   io.rfOutput.regWrite.valid      := false.B
+  io.rfOutput.regWrite.bits       := DontCare
   io.lsbOutput.storeCommit.valid  := false.B
+  io.lsbOutput.storeCommit.bits   := DontCare
   io.predOutput.info.valid        := false.B
+  io.predOutput.info.bits         := DontCare
   io.flushOutput.req.valid        := false.B
+  io.flushOutput.req.bits         := DontCare
   io.duOutput.commitMsg.valid     := false.B
+  io.duOutput.commitMsg.bits      := DontCare
   io.isTerminate                  := false.B
 
   when(canCommit) {

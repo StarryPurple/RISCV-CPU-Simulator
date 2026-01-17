@@ -25,6 +25,8 @@ class DispatchUnit extends Module {
   val dec = io.decInput.decodedInstr.bits
   val robAlloc = io.robInput.allocResp
 
+  robAlloc.ready := true.B
+
   // read from rf
   io.rfOutput.readReq(0).valid := io.decInput.decodedInstr.valid
   io.rfOutput.readReq(0).bits  := dec.rs1
@@ -128,4 +130,5 @@ class DispatchUnit extends Module {
       }
     }
   }
+  io.flushInput.flushed := true.B
 }

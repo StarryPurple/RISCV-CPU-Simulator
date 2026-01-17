@@ -26,7 +26,7 @@ class MemoryRequestData extends Bundle {
   val isWrite = Bool()
   val size = UInt(2.W)                // MemoryAccessSize
   
-  val isUnsigned = Bool()             // Load
+  // val isUnsigned = Bool()          // Load
   val byteEnable = UInt(4.W)          // Store
   
   val pc = UInt(Config.XLEN.W)        // for debug

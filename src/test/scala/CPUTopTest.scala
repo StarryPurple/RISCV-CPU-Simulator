@@ -15,13 +15,12 @@ class CPUTopSpec extends AnyFlatSpec with ChiselScalatestTester {
       println("--- Simulation Started ---")
 
       while (!halted && cycles < maxCycles) {
-        // 检查 CPU 内部的终止信号
-        if (dut.rob.io.isTerminate.peek().litToBoolean) {
-          val finalX10 = dut.rf.io.debug_x10.peek().litValue
+        println("New step")
+        if (dut.io.isTerminate.peek().litToBoolean) {
+          val finalX10 = dut.io.debug_x10.peek().litValue
           println(s"Successfully Halted at cycle $cycles")
           println(s"Final Register x10 (Result): $finalX10")
           
-          // 验证结果是否为 55
           assert(finalX10 == 21)
           halted = true
         }

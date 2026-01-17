@@ -12,6 +12,8 @@ class BranchPredictor extends Module {
     val ifOutput = new PredToIF
   })
 
+  io.ifInput.req.ready := true.B
+
   // simple BTB and BHT
   val btb = Mem(1024, UInt(Config.XLEN.W))
   val bht = Mem(1024, UInt(2.W))

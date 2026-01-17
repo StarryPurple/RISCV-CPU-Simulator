@@ -6,6 +6,10 @@ import rvsim.config.Config
 import rvsim.bundles._
 
 class CPUTop extends Module {
+  val io = IO(new Bundle {
+    val isTerminate = Output(Bool())
+    val debug_x10 = Output(UInt(32.W))
+  })
   val mi   = Module(new memory.MemoryInterface)
   val ifu  = Module(new frontend.InstructionFetcher)
   val dec  = Module(new frontend.Decoder)
@@ -50,6 +54,7 @@ class CPUTop extends Module {
   rs.io.cdbInput.in  := cdb.io.output.in
   rob.io.cdbInput.in := cdb.io.output.in
   du.io.cdbInput.in  := cdb.io.output.in
+  lsb.io.cdbInput.in := cdb.io.output.in
 
   rob.io.rfOutput    <> rf.io.robInput
   rob.io.predOutput  <> pred.io.robInput
@@ -62,8 +67,11 @@ class CPUTop extends Module {
   rs.io.flushInput   <> fp.io.rsOutput
   du.io.flushInput   <> fp.io.duOutput
 
-  when(rob.io.isTerminate) {
-    printf("Result: %d\n", rf.io.debug_x10)
+  io.isTerminate := rob.io.isTerminate
+  io.debug_x10   := rf.io.debug_x10
+
+  when(io.isTerminate) {
+    printf("Result: %d\n", io.debug_x10)
     stop()
   }
 }

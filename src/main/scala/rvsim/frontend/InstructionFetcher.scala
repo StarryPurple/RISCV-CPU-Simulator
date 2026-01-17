@@ -33,11 +33,19 @@ class InstructionFetcher extends Module {
 
   io.predOutput.req.valid   := (state === State.sRequest)
   io.predOutput.req.bits.pc := pc
+  io.predOutput.req.bits.instr := instrBuffer // might be wrong
 
-  io.miOutput.req.valid     := (state === State.sRequest) && !io.flushInput.req.valid
+  io.miOutput.req.valid      := (state === State.sRequest) && !io.flushInput.req.valid
   io.miOutput.req.bits.addr  := pc
   io.miOutput.req.bits.isInstruction := true.B
   io.miOutput.req.bits.size  := MemoryAccessSize.WORD
+  io.miOutput.req.bits.data  := DontCare // never stores
+  io.miOutput.req.bits.isWrite := false.B
+  io.miOutput.req.bits.pc    := pc
+  io.miOutput.req.bits.byteEnable := DontCare
+
+  io.decOutput.req.valid := false.B
+  io.decOutput.req.bits := DontCare
 
   switch(state) {
     is(State.sRequest) {

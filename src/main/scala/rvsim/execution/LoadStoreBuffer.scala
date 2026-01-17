@@ -115,4 +115,5 @@ class LoadStoreBuffer extends Module {
     deq_ptr := 0.U
     count   := 0.U
   }
+  io.flushInput.flushed := true.B
 }

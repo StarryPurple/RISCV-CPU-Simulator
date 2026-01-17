@@ -19,7 +19,7 @@ class CDBSource extends Bundle {
   val req = Decoupled(new CDBEntry)
 }
 
-// RoB, RS, DU <- CDB
+// RoB, RS, DU, LSB <- CDB
 class CDBListener extends Bundle {
   val in = Input(Valid(new CDBEntry))
 }
