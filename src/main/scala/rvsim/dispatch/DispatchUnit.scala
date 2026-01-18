@@ -18,7 +18,6 @@ class DispatchUnit extends Module {
     val lsbOutput = new DUToLSB
   })
 
-  // RAT / Free list
   val tagTable  = RegInit(VecInit(Seq.fill(32)(0.U(Config.ROB_IDX_WIDTH.W))))
   val busyTable = RegInit(VecInit(Seq.fill(32)(false.B)))
 
@@ -27,7 +26,6 @@ class DispatchUnit extends Module {
 
   robAlloc.ready := true.B
 
-  // read from rf
   io.rfOutput.readReq(0).valid := io.decInput.decodedInstr.valid
   io.rfOutput.readReq(0).bits  := dec.rs1
   io.rfOutput.readReq(1).valid := io.decInput.decodedInstr.valid
@@ -37,10 +35,7 @@ class DispatchUnit extends Module {
     val op = Wire(new OperandInfo)
     val isBusy = busyTable(rsIdx) && (rsIdx =/= 0.U)
     val tag    = tagTable(rsIdx)
-    
-    // cdb listen
     val cdbHit = io.cdbInput.in.valid && io.cdbInput.in.bits.robIdx === tag
-
     op.ready  := !isBusy || cdbHit
     op.data   := Mux(cdbHit, io.cdbInput.in.bits.data, rfData)
     op.robIdx := tag
@@ -51,23 +46,16 @@ class DispatchUnit extends Module {
   val op2 = resolveOperand(dec.rs2, io.rfInput.readRsp(1).data)
 
   val isLS = dec.isLoad || dec.isStore
-  
-  // 1. Decoder gives a valid instruction
-  // 2. RoB allows new entry (allocResp.valid)
-  // 3. RS/LSB (the correlated one) allows new entry
   val canDispatch = io.decInput.decodedInstr.valid && robAlloc.valid && 
                     Mux(isLS, io.lsbOutput.allocReq.ready, io.rsOutput.allocReq.ready)
 
-  // backup
-  io.decInput.decodedInstr.ready := canDispatch
-  io.robOutput.allocReq.valid    := canDispatch
-  io.robOutput.allocReq.bits     := dec // the datas
+  io.decInput.decodedInstr.ready  := canDispatch
+  io.robOutput.allocReq.valid     := canDispatch
+  io.robOutput.allocReq.bits      := dec
 
-  // try to fire
   io.rsOutput.allocReq.valid  := canDispatch && !isLS
   io.lsbOutput.allocReq.valid := canDispatch && isLS
 
-  // RS fire
   val rsEntry = io.rsOutput.allocReq.bits
   rsEntry := 0.U.asTypeOf(new RSEntry)
   when(canDispatch && !isLS) {
@@ -81,16 +69,17 @@ class DispatchUnit extends Module {
     rsEntry.robIdx      := robAlloc.bits.robIdx
     rsEntry.pc          := dec.pc
     rsEntry.instr       := dec.instr
-    rsEntry.useImm      := dec.useImm                            // use imm / rs2?
+    rsEntry.useImm      := dec.useImm
     rsEntry.predictedNextPC := dec.predPC
     rsEntry.isALU       := dec.isALU
     rsEntry.isMul       := dec.isMul
     rsEntry.isDiv       := dec.isDiv
     rsEntry.isBranch    := dec.isBranch
     rsEntry.isJump      := dec.isJump
+    printf(p"DU: dispatched rsEntry = $rsEntry\n")
+    printf("DU: dispatched instr %x at pc %x to RS\n", dec.instr, dec.pc)
   }
 
-  // LSB fire
   val lsbEntry = io.lsbOutput.allocReq.bits
   lsbEntry := 0.U.asTypeOf(new LSBEntry)
   when(canDispatch && isLS) {
@@ -106,25 +95,21 @@ class DispatchUnit extends Module {
     lsbEntry.robIdx      := robAlloc.bits.robIdx
     lsbEntry.pc          := dec.pc
     lsbEntry.instr       := dec.instr
+    printf(p"DU: dispatched lsbEntry = $lsbEntry\n")
+    printf("DU: dispatched instr %x at pc %x to LSB\n", dec.instr, dec.pc)
   }
 
-  // RAT 
   when(canDispatch && dec.rd =/= 0.U) {
     busyTable(dec.rd) := true.B
     tagTable(dec.rd)  := robAlloc.bits.robIdx
   }
 
-  // flush
   when(io.flushInput.req.valid) {
     busyTable.foreach(_ := false.B)
   } .otherwise {
-    
-    // commit 
     val commit = io.robInput.commitMsg
     val regWrite = commit.bits.regWrite
-    
     when(commit.valid && regWrite.valid && regWrite.bits.rd =/= 0.U) {
-      // WAW problem: overwrite only at latest tag (robIdx) commited matches
       when(tagTable(regWrite.bits.rd) === regWrite.bits.robIdx) {
         busyTable(regWrite.bits.rd) := false.B
       }

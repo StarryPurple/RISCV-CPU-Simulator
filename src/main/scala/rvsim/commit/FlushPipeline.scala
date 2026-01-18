@@ -21,6 +21,10 @@ class FlushPipeline extends Module {
   io.rsOutput.req  := flushReq
   io.duOutput.req  := flushReq
 
+  when(flushReq.valid) {
+    printf(p"Flush: Now requires flushing. info: ${io.robInput.req.bits}\n")
+  }
+
   val allModulesFlushed = 
     io.ifOutput.flushed && 
     io.lsbOutput.flushed && 

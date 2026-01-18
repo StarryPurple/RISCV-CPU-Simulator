@@ -19,5 +19,9 @@ class CommonDataBus extends Module {
   io.output.in.valid := arb.io.out.valid
   io.output.in.bits  := arb.io.out.bits
 
+  when(io.output.in.valid) {
+    printf(p"CDB: Broadcasting: ${io.output.in.bits}\n")
+  }
+
   arb.io.out.ready := true.B
 }

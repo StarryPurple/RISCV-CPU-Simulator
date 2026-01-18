@@ -44,14 +44,14 @@ class CPUTopSpec extends AnyFlatSpec with ChiselScalatestTester {
       dut.io.loadPort.en.poke(false.B)
       println("Instr memory load complete")
       
-      val maxCycles = 100
+      val maxCycles = 120
       var cycles = 0
       var halted = false
 
       println("--- Simulation Started ---")
 
       while (!halted && cycles < maxCycles) {
-        print("New cycle: ")
+        print("\nNew cycle: ")
         println(cycles)
         if (dut.io.isTerminate.peek().litToBoolean) {
           val finalX10 = dut.io.debug_x10.peek().litValue

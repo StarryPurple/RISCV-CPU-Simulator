@@ -77,4 +77,5 @@ class RoBAllocReq extends Bundle {
   val funct7 = UInt(7.W)                    // Funct7 field
 
   val predPC = UInt(Config.XLEN.W)
+  val ready = Bool()
 }

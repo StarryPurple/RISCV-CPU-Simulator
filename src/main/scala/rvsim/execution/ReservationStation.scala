@@ -45,6 +45,7 @@ class ReservationStation extends Module {
   when(io.duInput.allocReq.fire) {
     rsEntries(freeIdx) := io.duInput.allocReq.bits
     rsValids(freeIdx)  := true.B
+    printf(p"RS: DU input a new RSEntry: ${rsEntries(freeIdx)}\n")
   }
 
   // read CDB and issue to ALU

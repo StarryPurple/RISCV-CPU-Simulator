@@ -58,6 +58,10 @@ class ReorderBuffer extends Module {
 
     tail := tail + 1.U
     count := count + 1.U
+    when(io.duInput.allocReq.bits.instr === Config.TERMINATE_INSTR.U) {
+      printf(p"RoB: Received termination instr. -?-------------???-------------?-\n");
+      printf(p"${newEntry}")
+    }
   }
 
   when(io.cdbInput.in.valid) {
@@ -128,6 +132,8 @@ class ReorderBuffer extends Module {
       when(commitEntry.instr === Config.TERMINATE_INSTR.U) {
         io.isTerminate := true.B
       }
+
+      printf("RoB: commit instr %x at addr %x\n", commitEntry.instr, commitEntry.pc)
 
       robEntries(head).valid := false.B
       head := head + 1.U

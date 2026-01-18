@@ -12,6 +12,7 @@ SRC = "program.c"
 OUTPUT_ELF = "program.elf"
 OUTPUT_BIN = "program.bin"
 OUTPUT_HEX = "./program.hex"
+OUTPUT_ELF_TXT = "program.elf.txt"
 
 def run_cmd(cmd):
     res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
@@ -22,6 +23,8 @@ def run_cmd(cmd):
 def main():
     # 1. 编译 ELF
     run_cmd(f"{CC} {CFLAGS} -T {LNK_SCRIPT} {CRT0} {SRC} -o {OUTPUT_ELF}")
+    
+    run_cmd(f"riscv64-unknown-elf-objdump -d {OUTPUT_ELF} >{OUTPUT_ELF_TXT}")
 
     # 2. 提取 Binary (这是原始的字节流，不涉及字反转)
     run_cmd(f"{OBJCOPY} -O binary {OUTPUT_ELF} {OUTPUT_BIN}")

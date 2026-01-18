@@ -3,8 +3,6 @@
 .globl _start
 
 _start:
-    la sp, _stack_top
-    call main
-
-loop:
-    j loop
+    lui sp, 0x20
+    jal ra, main
+    sb x0, -1(x0)

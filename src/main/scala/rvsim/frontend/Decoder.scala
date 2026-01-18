@@ -11,9 +11,18 @@ class Decoder extends Module {
     val duOutput = new DecoderToDU
   })
 
-  val req   = io.ifInput.req.bits
-  val instr = req.instr
+  val instReg = RegEnable(io.ifInput.req.bits.instr, 0.U, io.ifInput.req.fire)
+  val pcReg   = RegEnable(io.ifInput.req.bits.pc, 0.U, io.ifInput.req.fire)
+  val predReg = RegEnable(io.ifInput.req.bits.predPC, 0.U, io.ifInput.req.fire)
+  val valReg  = RegInit(false.B)
 
+  when(io.ifInput.req.fire) {
+    valReg := true.B
+  } .elsewhen(io.duOutput.decodedInstr.fire) {
+    valReg := false.B
+  }
+
+  val instr = instReg
   val opcode = instr(6, 0)
   val rd     = instr(11, 7)
   val funct3 = instr(14, 12)
@@ -27,30 +36,28 @@ class Decoder extends Module {
   val immU = Cat(instr(31, 12), 0.U(12.W))
   val immJ = Cat(Fill(11, instr(31)), instr(31), instr(19, 12), instr(20), instr(30, 21), 0.U(1.W))
 
-  val isALUImm  = opcode === "b0010011".U // ADDI, SLTI...
-  val isALUReg  = opcode === "b0110011".U // ADD, SUB...
-  val isLoad    = opcode === "b0000011".U // LB, LW...
-  val isStore   = opcode === "b0100011".U // SB, SW...
-  val isBranch  = opcode === "b1100011".U // BEQ, BNE...
-  val isJal     = opcode === "b1101111".U // JAL
-  val isJalr    = opcode === "b1100111".U // JALR
-  val isLui     = opcode === "b0110111".U // LUI
-  val isAuipc   = opcode === "b0010111".U // AUIPC
+  val isALUImm  = opcode === "b0010011".U
+  val isALUReg  = opcode === "b0110011".U
+  val isLoad    = opcode === "b0000011".U
+  val isStore   = opcode === "b0100011".U
+  val isBranch  = opcode === "b1100011".U
+  val isJal     = opcode === "b1101111".U
+  val isJalr    = opcode === "b1100111".U
+  val isLui     = opcode === "b0110111".U
+  val isAuipc   = opcode === "b0010111".U
 
-  // M-extension
   val isM = isALUReg && (funct7 === "b0000001".U)
   
   val d = io.duOutput.decodedInstr.bits
-  d.pc     := req.pc
-  d.instr  := instr
+  d.pc     := pcReg
+  d.instr  := instReg
   d.opcode := opcode
   d.rd     := rd
   d.rs1    := rs1
   d.rs2    := rs2
   d.funct3 := funct3
   d.funct7 := funct7
-
-  d.predPC := io.ifInput.req.bits.predPC
+  d.predPC := predReg
 
   d.imm := MuxCase(0.U, Seq(
     (isALUImm || isLoad || isJalr) -> immI,
@@ -59,7 +66,6 @@ class Decoder extends Module {
     (isLui || isAuipc)             -> immU,
     isJal                          -> immJ
   ))
-  // not branch/jal: rs2 is still used.
   d.useImm := isALUImm || isLui || isAuipc || isStore || isLoad || isJalr
 
   d.isALU    := (isALUImm || (isALUReg && !isM) || isLui || isAuipc)
@@ -74,8 +80,10 @@ class Decoder extends Module {
   d.needsRs2 := (isALUReg || isStore || isBranch)
   d.writesRd := (rd =/= 0.U) && (isALUReg || isALUImm || isLoad || isJal || isJalr || isLui || isAuipc)
 
-  printf("Decoder: decoded instr at pc %d\n", d.pc)
-
-  io.duOutput.decodedInstr.valid := io.ifInput.req.valid
-  io.ifInput.req.ready           := io.duOutput.decodedInstr.ready
+  io.duOutput.decodedInstr.valid := valReg
+  io.ifInput.req.ready           := !valReg || io.duOutput.decodedInstr.ready
+  
+  when(io.ifInput.req.valid) {
+    printf("Decoder: decoded instr %x at pc %x\n", d.instr, d.pc)
+  }
 }

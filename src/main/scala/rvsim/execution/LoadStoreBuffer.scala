@@ -38,6 +38,9 @@ class LoadStoreBuffer extends Module {
     lsb_entries(enq_ptr).executed     := false.B
     enq_ptr := enq_ptr + 1.U
     count   := count + 1.U
+    when(io.duInput.allocReq.bits.instr === Config.TERMINATE_INSTR.U) {
+      printf("LSB: reached terminate instr -----------!---!!!---!------------\n")
+    }
   }
 
   when(io.cdbInput.in.valid) {
