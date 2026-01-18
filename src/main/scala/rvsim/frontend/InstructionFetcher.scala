@@ -102,5 +102,5 @@ class InstructionFetcher extends Module {
   io.miInput.resp.ready   := (state === State.sWaitResp) && !gotInstr
   io.predInput.resp.ready := (state === State.sWaitResp) && !gotPred
 
-  printf("DEBUG_IF: ReqAddr=%x | RespData=%x | State=%d | gotInstr=%d\n", pc, io.miInput.resp.bits.data, state.asUInt, gotInstr)
+  // printf("DEBUG_IF: ReqAddr=%x | RespData=%x | State=%d | gotInstr=%d\n", pc, io.miInput.resp.bits.data, state.asUInt, gotInstr)
 }

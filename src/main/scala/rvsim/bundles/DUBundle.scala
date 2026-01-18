@@ -135,6 +135,8 @@ class LSBEntry extends Bundle {
   val destReg = UInt(Config.PHYS_REG_ID_WIDTH.W) // Destination physical register (for debug?)
   val archDestReg = UInt(5.W)                    // Architectural destination register (for debug?)
   val robIdx = UInt(Config.ROB_IDX_WIDTH.W)      // Assigned ROB index
+
+  val isExecuted = Bool()
   
   // Debug information
   val pc = UInt(Config.XLEN.W)

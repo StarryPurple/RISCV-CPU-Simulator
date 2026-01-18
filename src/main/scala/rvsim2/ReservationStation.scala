@@ -3,7 +3,7 @@ package rvsim2
 import chisel3._
 import chisel3.util._
 
-class ReservationStation(val stnSize: Int = 8) extends Module {
+class ReservationStation(val stnSize: Int = Config.RSSize) extends Module {
   val io = IO(new Bundle {
     val duInput     = Input(new DUToRS)
     val cdbInput    = Input(new CDBOut)

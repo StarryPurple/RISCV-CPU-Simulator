@@ -14,8 +14,8 @@ class Predictor(val bhtSize: Int = 128, val rasSize: Int = 128) extends Module {
     val idle, predicting = Value
   }
 
-  val curStat = RegInit(State.idle)
-  val predPc  = RegInit(0.U(Config.XLEN.W))
+  val state  = RegInit(State.idle)
+  val predPc = RegInit(0.U(Config.XLEN.W))
 
   val bht = Mem(bhtSize, UInt(3.W))
   val ras = Mem(rasSize, UInt(Config.XLEN.W))
@@ -44,7 +44,7 @@ class Predictor(val bhtSize: Int = 128, val rasSize: Int = 128) extends Module {
     ras.write(getHash(learnAddr, rasSize), io.robInput.realPc)
   }
 
-  switch(curStat) {
+  switch(state) {
     is(State.idle) {
       when(io.ifuInput.isValid) {
         val addr = io.ifuInput.instrAddr
@@ -64,13 +64,13 @@ class Predictor(val bhtSize: Int = 128, val rasSize: Int = 128) extends Module {
         }
 
         predPc := finalPredPc
-        curStat := State.predicting
+        state := State.predicting
       }
     }
     is(State.predicting) {
       io.ifuOutput.isValid := true.B
       io.ifuOutput.predPc  := predPc
-      curStat := State.idle
+      state := State.idle
     }
   }
 }

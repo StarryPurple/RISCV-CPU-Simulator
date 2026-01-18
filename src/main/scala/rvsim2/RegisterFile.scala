@@ -17,15 +17,12 @@ class RegisterFile extends Module {
   }
 
   val regs    = RegInit(VecInit(Seq.fill(Config.RFSize)(0.U(Config.XLEN.W))))
-  io.getReg10 := regs(10)
-  val curStat = RegInit(State.idle)
+  val state   = RegInit(State.idle)
   
   val repRi = RegInit(false.B)
   val repRj = RegInit(false.B)
   val vi    = RegInit(0.U(Config.XLEN.W))
   val vj    = RegInit(0.U(Config.XLEN.W))
-
-  val nextStat = WireDefault(curStat)
 
   io.duOutput := 0.U.asTypeOf(new RFToDU)
 
@@ -36,7 +33,7 @@ class RegisterFile extends Module {
     }
   }
 
-  switch(curStat) {
+  switch(state) {
     is(State.idle) {
       when(io.duInput.isValid) {
         repRi := io.duInput.reqRi
@@ -45,7 +42,7 @@ class RegisterFile extends Module {
         repRj := io.duInput.reqRj
         vj    := Mux(io.duInput.Rj === 0.U, 0.U, regs(io.duInput.Rj))
         
-        nextStat := State.reading
+        state := State.reading
       }
     }
 
@@ -56,9 +53,9 @@ class RegisterFile extends Module {
       io.duOutput.Vi      := vi
       io.duOutput.Vj      := vj
       
-      nextStat := State.idle
+      state := State.idle
     }
   }
-
-  curStat := nextStat
+  
+  io.getReg10 := regs(10)
 }

@@ -3,7 +3,7 @@ package rvsim2
 import chisel3._
 import chisel3.util._
 
-class ReorderBuffer(val bufSize: Int = 16) extends Module {
+class ReorderBuffer(val bufSize: Int = Config.ROBSize) extends Module {
   val io = IO(new Bundle {
     val duInput     = Input(new DUToROB)
     val dataInput   = Input(new CDBOut)
@@ -41,8 +41,7 @@ class ReorderBuffer(val bufSize: Int = 16) extends Module {
 
   val queue    = CircQueue(new Entry, bufSize)
   val flushPc  = RegInit(0.U(Config.XLEN.W))
-  val curStat  = RegInit(State.idle)
-  val nextStat = WireDefault(curStat)
+  val state    = RegInit(State.idle)
 
   io.lsbOutput   := 0.U.asTypeOf(new ROBToLSB)
   io.duOutput    := 0.U.asTypeOf(new ROBToDU)
@@ -51,12 +50,13 @@ class ReorderBuffer(val bufSize: Int = 16) extends Module {
   io.flushOutput := 0.U.asTypeOf(new FlushPipeline)
   io.terminated  := false.B
 
-  switch(curStat) {
+  switch(state) {
     is(State.flushing) {
+      printf("\tRoB: Flush\n")
       io.flushOutput.isFlush := true.B
       io.flushOutput.pc      := flushPc
       queue.clear()
-      nextStat := State.idle
+      state := State.idle
     }
     is(State.idle) {
       when(io.duInput.isValid && !queue.full) {
@@ -75,6 +75,7 @@ class ReorderBuffer(val bufSize: Int = 16) extends Module {
         newEntry.dstReg     := io.duInput.dstReg
         newEntry.rawInstr   := io.duInput.rawInstr
         queue.push(newEntry)
+        printf("\tRoB get new Entry, rawInstr %x\n", newEntry.rawInstr)
         
         io.duOutput.isAllocValid := true.B
         io.duOutput.robIndex     := queue.backIndex
@@ -113,7 +114,7 @@ class ReorderBuffer(val bufSize: Int = 16) extends Module {
         val head = queue.front
         val isTerminate = head.rawInstr === Config.TerminationInstr.U
 
-        println(p"Commit ${head.rawInstr}\n")
+        printf("\tRoB commit Entry, rawInstr %x\n", head.rawInstr)
 
         when(!isTerminate) {
           when(head.isBr || head.isJalr) {
@@ -125,7 +126,7 @@ class ReorderBuffer(val bufSize: Int = 16) extends Module {
 
             when(head.predPc =/= head.realPc) {
               flushPc  := head.realPc
-              nextStat := State.flushing
+              state := State.flushing
             } .elsewhen(head.writeRf) {
               io.rfOutput.isValid  := true.B
               io.rfOutput.dstReg   := head.dstReg
@@ -162,5 +163,4 @@ class ReorderBuffer(val bufSize: Int = 16) extends Module {
       }
     }
   }
-  curStat := nextStat
 }

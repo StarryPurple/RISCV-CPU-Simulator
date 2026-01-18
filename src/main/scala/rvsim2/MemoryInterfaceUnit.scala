@@ -3,7 +3,7 @@ package rvsim2
 import chisel3._
 import chisel3.util._
 
-class MemoryInterfaceUnit(val ramCap: Int = 1 << 20) extends Module {
+class MemoryInterfaceUnit(val ramCap: Int = Config.RAMSize) extends Module {
   val io = IO(new Bundle {
     val lsbInput   = Input(new LSBToMIU)
     val ifuInput   = Input(new IFUToMIU)
@@ -18,7 +18,7 @@ class MemoryInterfaceUnit(val ramCap: Int = 1 << 20) extends Module {
     val idle, lsbLoad, lsbStore, ifuFetch = Value
   }
 
-  val curStat = RegInit(State.idle)
+  val state = RegInit(State.idle)
   
   val addrReg     = RegInit(0.U(Config.XLEN.W))
   val valueReg    = RegInit(0.U(Config.XLEN.W))
@@ -30,10 +30,8 @@ class MemoryInterfaceUnit(val ramCap: Int = 1 << 20) extends Module {
 
   io.ifuOutput := 0.U.asTypeOf(new MIUToIFU)
   io.lsbOutput := 0.U.asTypeOf(new MIUToLSB)
-
-  val nextStat = WireDefault(curStat)
   
-  // 1. Pre-loading Logic (LoadPort)
+  // Pre-loading Logic (LoadPort)
   // This happens independently of the FSM to allow initialization
   when(io.loadPort.en) {
     val loadData = Wire(Vec(4, UInt(8.W)))
@@ -41,10 +39,11 @@ class MemoryInterfaceUnit(val ramCap: Int = 1 << 20) extends Module {
       loadData(i) := io.loadPort.data(8 * i + 7, 8 * i)
     }
     mem.write(io.loadPort.addr >> 2, loadData, VecInit(Seq.fill(4)(true.B)))
+    printf("MIU: write instr %x to addr %x\n", loadData.asUInt, io.loadPort.addr)
   }
 
-  // 2. FSM Logic
-  switch(curStat) {
+  // stm Logic
+  switch(state) {
     is(State.idle) {
       // Avoid starting new tasks during flush or pre-loading
       when(!io.flushInput.isFlush && !io.loadPort.en) {
@@ -52,18 +51,18 @@ class MemoryInterfaceUnit(val ramCap: Int = 1 << 20) extends Module {
           addrReg     := io.lsbInput.addr
           dataLenReg  := io.lsbInput.dataLen
           clkDelayReg := 1.U // Adjusted for single-cycle read trigger
-          nextStat    := State.lsbLoad
+          state       := State.lsbLoad
         }.elsewhen(io.lsbInput.isStoreRequest) {
           addrReg     := io.lsbInput.addr
           dataLenReg  := io.lsbInput.dataLen
           valueReg    := io.lsbInput.value
           clkDelayReg := 1.U 
-          nextStat    := State.lsbStore
+          state       := State.lsbStore
         }.elsewhen(io.ifuInput.isValid) {
           addrReg     := io.ifuInput.pc
           dataLenReg  := 3.U 
           clkDelayReg := 1.U
-          nextStat    := State.ifuFetch
+          state       := State.ifuFetch
         }
       }
     }
@@ -75,8 +74,8 @@ class MemoryInterfaceUnit(val ramCap: Int = 1 << 20) extends Module {
       val rawData = mem.read(addrReg >> 2).asUInt
       when(countdown === 0.U) {
         io.lsbOutput.isLoadReply := true.B
-        io.lsbOutput.value       := rawData
-        nextStat                 := State.idle
+        io.lsbOutput.value := rawData
+        state := State.idle
       }
     }
 
@@ -88,12 +87,12 @@ class MemoryInterfaceUnit(val ramCap: Int = 1 << 20) extends Module {
         val mask      = Wire(Vec(4, Bool()))
         for (i <- 0 until 4) {
           writeData(i) := valueReg(8 * i + 7, 8 * i)
-          // Simple mask logic: 0->byte, 1->half, 3->word
-          mask(i)      := i.U <= dataLenReg
+          //  mask logic: 0->byte, 1->half, 3->word
+          mask(i) := i.U <= dataLenReg
         }
         mem.write(addrReg >> 2, writeData, mask)
         io.lsbOutput.isStoreReply := true.B
-        nextStat                  := State.idle
+        state := State.idle
       }
     }
 
@@ -105,15 +104,13 @@ class MemoryInterfaceUnit(val ramCap: Int = 1 << 20) extends Module {
         io.ifuOutput.isValid   := true.B
         io.ifuOutput.rawInstr  := rawData
         io.ifuOutput.instrAddr := addrReg
-        nextStat               := State.idle
+        state := State.idle
       }
     }
   }
 
   // 3. Flush Handling
   when(io.flushInput.isFlush) {
-    curStat := State.idle
-  }.otherwise {
-    curStat := nextStat
+    state := State.idle
   }
 }

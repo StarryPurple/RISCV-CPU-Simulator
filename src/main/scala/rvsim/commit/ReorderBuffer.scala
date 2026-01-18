@@ -10,7 +10,7 @@ class ROBEntry extends Bundle {
   val ready     = Bool()
   val pc        = UInt(Config.XLEN.W)
   val rd        = UInt(5.W)
-  val value     = UInt(Config.XLEN.W) // alu calc res / br real pc
+  val value     = UInt(Config.XLEN.W)
   val isLS      = Bool()
   val isBranch  = Bool()
   val predPC    = UInt(Config.XLEN.W)
@@ -34,9 +34,11 @@ class ReorderBuffer extends Module {
   val tail  = RegInit(0.U(Config.ROB_IDX_WIDTH.W))
   val count = RegInit(0.U(log2Ceil(Config.ROB_ENTRIES + 1).W))
 
+  val isFlushing = RegInit(false.B)
+  val terminateReg = RegInit(false.B)
+
   val full  = count === Config.ROB_ENTRIES.U
   val empty = count === 0.U
-  val isFlushing = RegInit(false.B)
 
   val canAllocate = !full && !isFlushing
   io.duInput.allocReq.ready := canAllocate
@@ -44,29 +46,26 @@ class ReorderBuffer extends Module {
   io.duOutput.allocResp.bits.robIdx := tail
 
   when(io.duInput.allocReq.fire) {
-    val newEntry = robEntries(tail)
-    newEntry.valid    := true.B
-    newEntry.ready    := false.B
-    newEntry.pc       := io.duInput.allocReq.bits.pc
-    newEntry.rd       := io.duInput.allocReq.bits.rd
-    newEntry.instr    := io.duInput.allocReq.bits.instr
-    newEntry.predPC   := io.duInput.allocReq.bits.predPC
+    val req = io.duInput.allocReq.bits
+    val op = req.opcode
     
-    val op = io.duInput.allocReq.bits.opcode
-    newEntry.isLS     := (op === "b0000011".U || op === "b0100011".U)
-    newEntry.isBranch := (op === "b1100011".U || op === "b1101111".U || op === "b1100111".U)
+    robEntries(tail).valid    := true.B
+    robEntries(tail).ready    := req.immediateDataValid
+    robEntries(tail).value    := req.immediateData
+    robEntries(tail).pc       := req.pc
+    robEntries(tail).rd       := req.rd
+    robEntries(tail).instr    := req.instr
+    robEntries(tail).predPC   := req.predPC
+    robEntries(tail).isLS     := (op === 0x03.U || op === 0x23.U)
+    robEntries(tail).isBranch := (op === 0x63.U || op === 0x6F.U || op === 0x67.U)
 
     tail := tail + 1.U
     count := count + 1.U
-    when(io.duInput.allocReq.bits.instr === Config.TERMINATE_INSTR.U) {
-      printf(p"RoB: Received termination instr. -?-------------???-------------?-\n");
-      printf(p"${newEntry}")
-    }
   }
 
   when(io.cdbInput.in.valid) {
     val cdb = io.cdbInput.in.bits
-    when(robEntries(cdb.robIdx).valid) {
+    when(robEntries(cdb.robIdx).valid && !robEntries(cdb.robIdx).ready) {
       robEntries(cdb.robIdx).ready := true.B
       robEntries(cdb.robIdx).value := cdb.data
     }
@@ -75,7 +74,6 @@ class ReorderBuffer extends Module {
   val commitEntry = robEntries(head)
   val canCommit = commitEntry.valid && commitEntry.ready && !empty && !isFlushing
 
-  // default
   io.rfOutput.regWrite.valid      := false.B
   io.rfOutput.regWrite.bits       := DontCare
   io.lsbOutput.storeCommit.valid  := false.B
@@ -86,7 +84,8 @@ class ReorderBuffer extends Module {
   io.flushOutput.req.bits         := DontCare
   io.duOutput.commitMsg.valid     := false.B
   io.duOutput.commitMsg.bits      := DontCare
-  io.isTerminate                  := false.B
+  
+  io.isTerminate := terminateReg && !isFlushing
 
   when(canCommit) {
     val realTargetPC = commitEntry.value 
@@ -98,10 +97,10 @@ class ReorderBuffer extends Module {
       io.flushOutput.req.bits.flushFromRoBIdx.valid := true.B
       io.flushOutput.req.bits.flushFromRoBIdx.bits  := head
       isFlushing := true.B
+      terminateReg := false.B
     } .otherwise {
       val isStore = commitEntry.isLS && (commitEntry.instr(5) === 1.B) 
       val isLoad  = commitEntry.isLS && (commitEntry.instr(5) === 0.B)
-      
       val shouldWriteRF = (commitEntry.rd =/= 0.U) && (!commitEntry.isLS || isLoad) && !commitEntry.isBranch
 
       when(shouldWriteRF) {
@@ -130,10 +129,8 @@ class ReorderBuffer extends Module {
       }
 
       when(commitEntry.instr === Config.TERMINATE_INSTR.U) {
-        io.isTerminate := true.B
+        terminateReg := true.B
       }
-
-      printf("RoB: commit instr %x at addr %x\n", commitEntry.instr, commitEntry.pc)
 
       robEntries(head).valid := false.B
       head := head + 1.U
@@ -141,11 +138,14 @@ class ReorderBuffer extends Module {
     }
   }
 
-  when(isFlushing && io.flushOutput.flushed) {
-    robEntries.foreach(_.valid := false.B)
-    head := 0.U
-    tail := 0.U
-    count := 0.U
-    isFlushing := false.B
+  when(isFlushing) {
+    terminateReg := false.B
+    when(io.flushOutput.flushed) {
+      robEntries.foreach(_.valid := false.B)
+      head := 0.U
+      tail := 0.U
+      count := 0.U
+      isFlushing := false.B
+    }
   }
 }

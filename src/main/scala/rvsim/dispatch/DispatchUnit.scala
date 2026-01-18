@@ -23,7 +23,6 @@ class DispatchUnit extends Module {
 
   val dec = io.decInput.decodedInstr.bits
   val robAlloc = io.robInput.allocResp
-
   robAlloc.ready := true.B
 
   io.rfOutput.readReq(0).valid := io.decInput.decodedInstr.valid
@@ -45,13 +44,47 @@ class DispatchUnit extends Module {
   val op1 = resolveOperand(dec.rs1, io.rfInput.readRsp(0).data)
   val op2 = resolveOperand(dec.rs2, io.rfInput.readRsp(1).data)
 
+  val isLUI   = dec.opcode === 0x37.U
+  val isAUIPC = dec.opcode === 0x17.U
+  val isJAL   = dec.opcode === 0x6F.U
+  val isJALR  = dec.opcode === 0x67.U
+  val isLI    = dec.opcode === 0x13.U && dec.funct3 === 0x0.U && dec.rs1 === 0.U
+
+  val isReadyLS = dec.isStore && op1.ready && op2.ready
+
+  val canResolveInDU = isLUI || isAUIPC || isJAL || isJALR || isLI || isReadyLS
+  val duResult = MuxCase(0.U, Seq(
+    isLUI     -> dec.imm,
+    isAUIPC   -> (dec.pc + dec.imm),
+    isJAL     -> (dec.pc + 4.U),
+    isJALR    -> (dec.pc + 4.U),
+    isLI      -> dec.imm,
+    isReadyLS -> (op1.data + dec.imm) 
+  ))
+
   val isLS = dec.isLoad || dec.isStore
   val canDispatch = io.decInput.decodedInstr.valid && robAlloc.valid && 
                     Mux(isLS, io.lsbOutput.allocReq.ready, io.rsOutput.allocReq.ready)
 
   io.decInput.decodedInstr.ready  := canDispatch
-  io.robOutput.allocReq.valid     := canDispatch
-  io.robOutput.allocReq.bits      := dec
+  io.robOutput.allocReq.valid      := canDispatch
+  
+  val robReq = io.robOutput.allocReq.bits
+  robReq := 0.U.asTypeOf(new RoBAllocReq)
+  when(canDispatch) {
+    robReq.pc := dec.pc
+    robReq.instr := dec.instr
+    robReq.opcode := dec.opcode
+    robReq.rd := dec.rd
+    robReq.rs1 := dec.rs1
+    robReq.rs2 := dec.rs2
+    robReq.imm := dec.imm
+    robReq.funct3 := dec.funct3
+    robReq.funct7 := dec.funct7
+    robReq.predPC := dec.predPC
+    robReq.immediateDataValid := canResolveInDU
+    robReq.immediateData := duResult
+  }
 
   io.rsOutput.allocReq.valid  := canDispatch && !isLS
   io.lsbOutput.allocReq.valid := canDispatch && isLS
@@ -59,44 +92,41 @@ class DispatchUnit extends Module {
   val rsEntry = io.rsOutput.allocReq.bits
   rsEntry := 0.U.asTypeOf(new RSEntry)
   when(canDispatch && !isLS) {
-    rsEntry.opcode      := dec.opcode
-    rsEntry.funct3      := dec.funct3
-    rsEntry.funct7      := dec.funct7
-    rsEntry.imm         := dec.imm
-    rsEntry.src1        := op1
-    rsEntry.src2        := op2
+    rsEntry.opcode := dec.opcode
+    rsEntry.funct3 := dec.funct3
+    rsEntry.funct7 := dec.funct7
+    rsEntry.imm := dec.imm
+    rsEntry.src1 := op1
+    rsEntry.src2 := op2
     rsEntry.archDestReg := dec.rd
-    rsEntry.robIdx      := robAlloc.bits.robIdx
-    rsEntry.pc          := dec.pc
-    rsEntry.instr       := dec.instr
-    rsEntry.useImm      := dec.useImm
+    rsEntry.robIdx := robAlloc.bits.robIdx
+    rsEntry.pc := dec.pc
+    rsEntry.instr := dec.instr
+    rsEntry.useImm := dec.useImm
     rsEntry.predictedNextPC := dec.predPC
-    rsEntry.isALU       := dec.isALU
-    rsEntry.isMul       := dec.isMul
-    rsEntry.isDiv       := dec.isDiv
-    rsEntry.isBranch    := dec.isBranch
-    rsEntry.isJump      := dec.isJump
-    printf(p"DU: dispatched rsEntry = $rsEntry\n")
-    printf("DU: dispatched instr %x at pc %x to RS\n", dec.instr, dec.pc)
+    rsEntry.isALU := dec.isALU
+    rsEntry.isMul := dec.isMul
+    rsEntry.isDiv := dec.isDiv
+    rsEntry.isBranch := dec.isBranch
+    rsEntry.isJump := dec.isJump
   }
 
   val lsbEntry = io.lsbOutput.allocReq.bits
   lsbEntry := 0.U.asTypeOf(new LSBEntry)
   when(canDispatch && isLS) {
-    lsbEntry.isLoad      := dec.isLoad
-    lsbEntry.isStore     := dec.isStore
-    lsbEntry.addr.base   := op1.data
+    lsbEntry.isLoad := dec.isLoad
+    lsbEntry.isStore := dec.isStore
+    lsbEntry.addr.base := op1.data
     lsbEntry.addr.baseReady := op1.ready
     lsbEntry.addr.baseRobIdx := op1.robIdx
     lsbEntry.addr.offset := dec.imm.asSInt
     lsbEntry.storeData.value := op2.data
     lsbEntry.storeData.ready := op2.ready
     lsbEntry.archDestReg := dec.rd
-    lsbEntry.robIdx      := robAlloc.bits.robIdx
-    lsbEntry.pc          := dec.pc
-    lsbEntry.instr       := dec.instr
-    printf(p"DU: dispatched lsbEntry = $lsbEntry\n")
-    printf("DU: dispatched instr %x at pc %x to LSB\n", dec.instr, dec.pc)
+    lsbEntry.robIdx := robAlloc.bits.robIdx
+    lsbEntry.pc := dec.pc
+    lsbEntry.instr := dec.instr
+    lsbEntry.isExecuted := isReadyLS
   }
 
   when(canDispatch && dec.rd =/= 0.U) {

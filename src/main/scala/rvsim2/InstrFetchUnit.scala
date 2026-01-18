@@ -3,7 +3,7 @@ package rvsim2
 import chisel3._
 import chisel3.util._
 
-class InstrFetchUnit(val bufSize: Int = 8) extends Module {
+class InstrFetchUnit(val bufSize: Int = Config.IFUSize) extends Module {
   val io = IO(new Bundle {
     val miuInput   = Input(new MIUToIFU)
     val predInput  = Input(new PredToIFU)
@@ -25,7 +25,7 @@ class InstrFetchUnit(val bufSize: Int = 8) extends Module {
     val nextPc      = UInt(Config.XLEN.W)
   }
 
-  val curStat = RegInit(State.idle)
+  val state   = RegInit(State.idle)
   val pc      = RegInit(Config.StartAddr.U(Config.XLEN.W))
   val queue   = CircQueue(new Entry, bufSize)
 
@@ -33,17 +33,15 @@ class InstrFetchUnit(val bufSize: Int = 8) extends Module {
   io.predOutput := 0.U.asTypeOf(new IFUToPred)
   io.duOutput   := 0.U.asTypeOf(new IFUToDU)
 
-  val nextStat = WireDefault(curStat)
-
   when(io.flushInput.isFlush) {
     pc := io.flushInput.pc
     queue.clear()
     io.miuOutput.isValid := true.B
     io.miuOutput.pc      := io.flushInput.pc
-    nextStat := State.idle
+    state := State.idle
   } .otherwise {
 
-    val fetchCond = (curStat === State.idle) && !queue.full && (queue.empty || queue.front.instrAddr =/= pc)
+    val fetchCond = (state === State.idle) && !queue.full && (queue.empty || queue.front.instrAddr =/= pc)
     when(fetchCond) {
       io.miuOutput.isValid := true.B
       io.miuOutput.pc      := pc
@@ -65,30 +63,30 @@ class InstrFetchUnit(val bufSize: Int = 8) extends Module {
         pc := targetPc
         newEntry.nextPc      := targetPc
         newEntry.nextPcReady := true.B
-        nextStat := State.idle
+        state := State.idle
       } .elsewhen(instr.isJalr || instr.isBr) {
         io.predOutput.isValid   := true.B
         io.predOutput.instrAddr := addr
         io.predOutput.isBr      := instr.isBr
         io.predOutput.isJalr    := instr.isJalr
-        nextStat := State.handleBrJmp
+        state := State.handleBrJmp
       } .otherwise {
         val nextSeqPc = addr + 4.U
         pc := nextSeqPc
         newEntry.nextPc      := nextSeqPc
         newEntry.nextPcReady := true.B
-        nextStat := State.idle
+        state := State.idle
       }
       queue.push(newEntry)
     }
 
-    when(curStat === State.handleBrJmp && io.predInput.isValid) {
+    when(state === State.handleBrJmp && io.predInput.isValid) {
       pc := io.predInput.predPc
       val updatedEntry = queue.back
       updatedEntry.nextPc      := io.predInput.predPc
       updatedEntry.nextPcReady := true.B
       queue.writeAt(queue.backIndex, updatedEntry)
-      nextStat := State.idle
+      state := State.idle
     }
 
     when(io.duInput.canAcceptReq && !queue.empty && queue.front.nextPcReady) {
@@ -101,7 +99,5 @@ class InstrFetchUnit(val bufSize: Int = 8) extends Module {
     }
   }
 
-  curStat := nextStat
-
-  printf(p" pc at ${pc}\n")
+  printf("\tpc at %x\n", pc)
 }

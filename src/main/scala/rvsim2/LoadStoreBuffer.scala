@@ -3,7 +3,7 @@ package rvsim2
 import chisel3._
 import chisel3.util._
 
-class LoadStoreBuffer(val bufSize: Int = 16) extends Module {
+class LoadStoreBuffer(val bufSize: Int = Config.LSBSize) extends Module {
   val io = IO(new Bundle {
     val miuInput   = Input(new MIUToLSB)
     val duInput    = Input(new DUToLSB)
