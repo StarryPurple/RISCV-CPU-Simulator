@@ -8,6 +8,12 @@ class RoBToLSQ extends Bundle {
   val robIdx = RoBIndex
 }
 
+class RoBToPred extends Bundle {
+  val instrAddr   = Addr
+  val actualPC    = Addr
+  val actualTaken = Bool()
+}
+
 class ReorderBuffer extends Module {
   
 }
