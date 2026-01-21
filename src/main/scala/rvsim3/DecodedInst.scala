@@ -80,6 +80,21 @@ class DecodedInst extends Bundle {
       InstrType.LW.asUInt  -> 4.U, InstrType.SW.asUInt  -> 4.U
     ))
   }
+
+  def isMul: Bool = {
+    false.B
+  }
+
+  def isDiv: Bool = {
+    false.B
+  }
+
+  def calcCycles: UInt = {
+    MuxCase(1.U, Seq(
+      isMul -> 4.U,
+      isDiv -> 32.U
+    ))
+  }
 }
 
 object DecodedInst {

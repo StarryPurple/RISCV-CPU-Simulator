@@ -14,6 +14,14 @@ class RoBToPred extends Bundle {
   val actualTaken = Bool()
 }
 
+class RoBToDU extends Bundle {
+
+}
+
+class RoBToLF extends Bundle {
+  val physIdx = PhysIndex
+}
+
 class ReorderBuffer extends Module {
   
 }

@@ -41,8 +41,8 @@ Flush 设置：强制转为 sIdle 状态。
 
 - DU
 维护一个逻辑/物理寄存器关系表 RAT。
-与 Pred，RoB，LSQ，RS，FreeList 相连，接通 FlushPipeline（接收者）。
-接收 Pred 传来的解析后指令，向 FreeList 给逻辑寄存器分配物理寄存器并更新 RAT，将这个分配的相关信息发给 RoB 获取 robIdx，根据指令种类将其分给 LSQ/RS。
+与 Dec，RoB，LSQ，RS，FreeList 相连，接通 FlushPipeline（接收者）。
+接收 Dec 传来的解析后指令，向 FreeList 给逻辑寄存器分配物理寄存器并更新 RAT，将这个分配的相关信息发给 RoB 获取 robIdx，根据指令种类将其分给 LSQ/RS。
 状态：sIdle - sAllocPhys - sWaitPhys - sAllocRoB - sWaitRoB - sDispatch
 Flush 设置：强制转为 sIdle 状态，并根据 RoB 本周期发来的 physIdx 与 prePhysIdx 回退 RAT。Flush 状态解除时 RAT 应当回退到正确版本。
 
@@ -60,6 +60,7 @@ Flush 设置：无条件清空所有槽位。
 根据 decInstr 的内容执行相应内容。应指令类型可能花费不同周期数。
 状态：sIdle - sBusy - sReady
 繁忙 / 准备好的数据未被 CDB 推送前，拒绝 RS 输入信号。
+Flush 设置：无条件终止运算，强制转为 sIdle 状态。
 
 - LSQ
 与 DU，MI，RoB 相连，接通 CDB（发出者，接收者）与 FlushPipeline（接收者）
