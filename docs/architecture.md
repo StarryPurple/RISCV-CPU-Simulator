@@ -64,10 +64,10 @@ Flush 设置：无条件清空所有槽位。
 - LSQ
 与 DU，MI，RoB 相连，接通 CDB（发出者，接收者）与 FlushPipeline（接收者）
 维护有一系列槽位（循环队列），每个槽位状态：
-isWrite, wrType(byte, half, word)
+isWrite, mask(byte, half, word)
 addr: isReady, value, robIdx
 value: isReady, value, robIdx
-rd: robIdx
+rd: targetRobIdx, readyToIssue
 读操作不需要 RoB 确认，但是要确认没有同地址的写操作排在前面。
 写操作必须在 addr 与 value 准备好，且 RoB 确认后执行。
 预留槽位满且不存在可推送槽位时，拒绝 DU 输入信号。

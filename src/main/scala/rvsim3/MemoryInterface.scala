@@ -34,7 +34,7 @@ class MemoryInterface extends Module {
     val ramIn  = Flipped(Decoupled(new RAMToMI))
     val ramOut = Decoupled(new MIToRAM)
     
-    val flush  = Input(Bool())
+    val flush  = Flipped(Valid(new FlushPipeline))
   })
 
   object State extends ChiselEnum {
@@ -43,8 +43,8 @@ class MemoryInterface extends Module {
   val state = RegInit(State.sIdle)
 
   val epoch = RegInit(false.B)
-  val lastFlush = RegNext(io.flush, false.B)
-  when(io.flush && !lastFlush) { epoch := !epoch }
+  val lastFlush = RegNext(io.flush.valid, false.B)
+  when(io.flush.valid && !lastFlush) { epoch := !epoch }
 
   val activeReq     = Reg(new MIReq)
   val activeEpoch   = Reg(Bool())
@@ -53,7 +53,7 @@ class MemoryInterface extends Module {
 
   // 1. sIdle
 
-  val canAccept = state === State.sIdle && !io.flush
+  val canAccept = state === State.sIdle && !io.flush.valid
   io.lsqIn.ready := canAccept
   io.ifIn.ready  := canAccept && !io.lsqIn.valid // only at LSQ req is not valid
 
@@ -83,7 +83,7 @@ class MemoryInterface extends Module {
 
   when(state === State.sBusy) {
     when(io.ramIn.fire) {
-      when(activeEpoch === epoch && !io.flush) {
+      when(activeEpoch === epoch && !io.flush.valid) {
         rdataReg := io.ramIn.bits.rdata
         state    := State.sReady
       } .otherwise {
@@ -95,7 +95,7 @@ class MemoryInterface extends Module {
 
   // 3. sReady
   val targetOutReady = Mux(activeFromLSQ, io.lsqOut.ready, io.ifOut.ready)
-  val respValid      = state === State.sReady && !io.flush
+  val respValid      = state === State.sReady && !io.flush.valid
 
   io.lsqOut.valid     := respValid && activeFromLSQ
   io.lsqOut.bits.data := rdataReg
@@ -104,14 +104,14 @@ class MemoryInterface extends Module {
   io.ifOut.bits.data  := rdataReg
 
   when(state === State.sReady) {
-    when(io.flush) {
+    when(io.flush.valid) {
       state := State.sIdle
     } .elsewhen(targetOutReady) {
       state := State.sIdle
     }
   }
-  
-  when(io.flush) {
+
+  when(io.flush.valid) {
     state := State.sIdle
   }
 }

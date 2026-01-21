@@ -7,6 +7,7 @@ object Config {
   val TerminateInst = 0xfe000fa3L // sb x0, -1(x0)
 
   val MemSize = 1024 * 1024 * 4 // 4MB
+  val numLSBEntry = 16
 
   val InstLen = 32
   val InstWidth = log2Ceil(InstLen)

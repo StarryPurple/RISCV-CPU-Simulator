@@ -18,13 +18,13 @@ class CircularBuffer[T <: Data](gen: T, val entries: Int) {
   def isEmpty = head === tail
   def isFull  = (headIdx === tailIdx) && (head(indexWidth) =/= tail(indexWidth))
 
-  def enq(data: T): Unit = {
-    assert(!isFull, "CircularBuffer: Attempted to enqueue into a full buffer")
+  def enq(data: T) = {
+    // assert(!isFull, "CircularBuffer: Attempted to enqueue into a full buffer")
     buffer(tailIdx) := data
     tail := tail + 1.U
   }
   def deq(): T = {
-    assert(!isEmpty, "CircularBuffer: Attempted to dequeue from an empty buffer")
+    // assert(!isEmpty, "CircularBuffer: Attempted to dequeue from an empty buffer")
     val data = WireDefault(buffer(headIdx))
     head := head + 1.U
     data
@@ -33,10 +33,20 @@ class CircularBuffer[T <: Data](gen: T, val entries: Int) {
 
   // for rollback
   def getAndPopBack(): T = {
-    assert(!isEmpty, "CircularBuffer: Attempted to get and pop back from an empty buffer")
+    // assert(!isEmpty, "CircularBuffer: Attempted to get and pop back from an empty buffer")
     val lastIdx = (tail - 1.U)(indexWidth - 1, 0)
     val data = WireDefault(buffer(lastIdx))
     tail := tail - 1.U
     data
+  }
+  def flush() = {
+    head := 0.U
+    tail := 0.U
+  }
+}
+
+object CircularBuffer {
+  def apply[T <: Data](gen: T, entries: Int): CircularBuffer[T] = {
+    new CircularBuffer(gen, entries)
   }
 }
