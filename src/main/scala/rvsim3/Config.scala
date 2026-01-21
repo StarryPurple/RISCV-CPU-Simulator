@@ -1,30 +1,34 @@
 package rvsim3
 
-import chisel3.util.log2Ceil
-import chisel3.UInt
+import chisel3._
+import chisel3.util._
 
 object Config {
-  val XLen = 32 // memory data length
+  val TerminateInst = 0xfe000fa3L // sb x0, -1(x0)
 
-  type InstT = UInt
-  val InstLen = XLen
+  val MemSize = 1024 * 1024 * 4 // 4MB
+
+  val InstLen = 32
   val InstWidth = log2Ceil(InstLen)
+  def Inst = UInt(InstLen.W)
 
-  type DataT = UInt
-  val DataLen = XLen
-  val DataWidth = log2Ceil(DataLen)
+  val XDataLen = 32
+  val XDataWidth = log2Ceil(XDataLen)
+  def XData = UInt(XDataLen.W)
 
-  type AddrT = UInt
   val AddrLen = 32
   val AddrWidth = log2Ceil(AddrLen)
+  def Addr = UInt(AddrLen.W)
 
   val NumArchRegs = 32
+  val ArchIndexLen = log2Ceil(NumArchRegs)
+  def ArchIndex = UInt(ArchIndexLen.W)
 
   val NumRoBEntries = 16
-  val RoBIndexT = UInt
-  val RobIndexWidth = log2Ceil(NumRoBEntries)
+  val RobIndexLen = log2Ceil(NumRoBEntries)
+  def RoBIndex = UInt(RobIndexLen.W)
 
   val NumPhysRegs = NumArchRegs + NumRoBEntries + 16 // add a margin, in case something bad happens
-  val PhysIndexT = UInt
-  val PhysIndexWidth = log2Ceil(NumPhysRegs)
+  val PhysIndexLen = log2Ceil(NumPhysRegs)
+  def PhysIndex = UInt(PhysIndexLen.W)
 }

@@ -14,12 +14,14 @@ MI (MemoryInterface)，IF (InstructionFetcher)，Dec (Decoder), DU (DispatchUnit
 单个 SyncReadMem 模拟，提供4MB，配置 .text = 0x0020 0000，.data 由程序分配，一般程序分配栈空间 128KB.
 特殊接口：提供读写窗口，供模拟开始前预加载指令。
 每次接到一个读写请求，需要花费一个周期进行操作。
+写操作直接完成，读操作仍然需要等待 MI 背压握手后传回数据。
 状态：sIdle 空闲 - sBusy 繁忙 - sReady 等待反馈数据
 
 - MI
 与 IF/LSQ, RAM 相连。连通 FlushPipeline（接收者）。
 整体信息路径为：IF/LSQ -> MI -> RAM(Req) -> RAM(Resp) -> MI -> IF/LSQ，相较于请求-反馈的理论1周期路径，有3个周期的延时。
 状态：sIdle 空闲 - sBusy 繁忙（RAM 未回复）- sReady 等待反馈数据
+对于写请求，在RAM接受请求时即可反馈
 状态：isIF 正在处理的元件（IF/LSQ）
 Flush 设置：强制转为 sIdle 状态。
 在 Flush 期间 RAM 可能返回不被需要的数据。为此，设置一个 epoch 寄存器，在检测到 flush 信号发出的第一个周期（这个需要另一个1-bit寄存器判定）时更新 epoch。发送请求时带有当前 epoch 信息，接收数据时检查 epoch 信息，如果不匹配则丢弃数据，直接进入 sIdle 而非 sReady 状态。
@@ -99,7 +101,7 @@ Flush 设置：按循环队列逆向，根据失败槽位的 physIdx 与 prePhys
 内置一个仲裁器以确定该周期接收哪个数据源的数据。
 广播是一次性且强制的，数据接收元件不会提供反压信号，默认必定接收并处理。（监听数据也不涉及什么空间分配失败问题）
 LSQ 不需要通过 CDB 接收来自 LSQ 的数据，但仍然需要通过 CDB 接收来自 ALU 的数据。
-当 Flush 信号在该周期被传播时，CDB 正在广播的数据无效，须被静默忽略处置。
+当 Flush 信号在该周期被传播时，CDB 正在广播的数据无效，须被忽略（并没有给CDB连线FlushPipeline，需要接收者判断）。
 
 - FreeList
 与 DU，RoB 相连。
