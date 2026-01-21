@@ -4,8 +4,14 @@ import chisel3.util.log2Ceil
 import chisel3.UInt
 
 object Config {
+  val XLen = 32 // memory data length
+
+  type InstT = UInt
+  val InstLen = XLen
+  val InstWidth = log2Ceil(InstLen)
+
   type DataT = UInt
-  val DataLen = 32
+  val DataLen = XLen
   val DataWidth = log2Ceil(DataLen)
 
   type AddrT = UInt
