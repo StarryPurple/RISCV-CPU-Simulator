@@ -4,9 +4,10 @@ import chisel3._
 import chisel3.util._
 
 object Config {
+  val StartAddr = 0.U(AddrLen.W)
   val TerminateInst = 0xfe000fa3L // sb x0, -1(x0)
 
-  val MemSize = 1024 * 1024 * 4 // 4MB
+  val MemSize = 1024 * 1024 * 4   // 4MB
   val numLSBEntry = 16
 
   val InstLen = 32
