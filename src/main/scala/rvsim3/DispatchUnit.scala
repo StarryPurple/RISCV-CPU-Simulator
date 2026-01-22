@@ -47,8 +47,10 @@ class RegisterAliasTable extends Module {
   io.x10PhysIdx := table(10)
 
   when(io.rollbackEn) {
+    printf("[DU-RAT] rollback: Arch %d -> Phys %d roll back to Phys %d\n", io.rollbackArch, table(io.rollbackArch), io.rollbackPhys)
     table(io.rollbackArch) := io.rollbackPhys
   }.elsewhen(io.updateEn && io.updateArch =/= 0.U) {
+    printf("[DU-RAT] update: Arch %d -> Phys %d update to Phys %d\n", io.updateArch, table(io.updateArch), io.updatePhys)
     table(io.updateArch) := io.updatePhys
   }
 }
@@ -65,6 +67,7 @@ class DispatchUnit extends Module {
     val rsOut  = Decoupled(new RSEntry)
     val rfIn   = Input(new RFToDU)
     val rfOut  = Output(new DUToRF) // always ready.
+    val cdbIn  = Flipped(Valid(new CDBPayload))
     
     val x10PhysIdx = Output(PhysIndex)
   })
@@ -147,41 +150,75 @@ class DispatchUnit extends Module {
         io.robOut.bits.physIdx    := Mux(needPhys, newPhysIdx, 0.U)
         io.robOut.bits.prePhysIdx := rat.io.rdPhysIdx // Save old mapping for recovery/recycling
         io.robOut.bits.isReady    := false.B
-        io.robOut.bits.value      := 0.U
+        io.robOut.bits.value      := DontCare
+        io.robOut.bits.addr       := DontCare
         io.robOut.bits.pc         := io.decIn.bits.pc
         io.robOut.bits.predPC     := io.decIn.bits.predPC
-
-        // pass to RS or LSQ
+        
         when(isMem) {
           io.lsqOut.valid := true.B
           io.lsqOut.bits.isWrite      := instr.isStore
           io.lsqOut.bits.mask         := instr.memDataMask
-          io.lsqOut.bits.addrReady    := false.B
+
+          io.lsqOut.bits.addrReady    := false.B // must use ALU to calculate
           io.lsqOut.bits.addr         := 0.U
-          // Address calculation uses current physIdx for CDB broadcast matching
-          io.lsqOut.bits.addrPhysIdx  := Mux(needPhys, newPhysIdx, 0.U) 
+          io.lsqOut.bits.addrPhysIdx  := 0.U // never allocate: this shall be bypassed by ALU and be related to none of physical registers.
           
           io.lsqOut.bits.dataReady    := Mux(instr.isStore, io.rfIn.rs2Ready, false.B)
           io.lsqOut.bits.data         := io.rfIn.rs2Value
-          io.lsqOut.bits.dataPhysIdx  := Mux(instr.isStore, rat.io.rs2PhysIdx, rat.io.rdPhysIdx)
+          io.lsqOut.bits.dataPhysIdx  := Mux(instr.isStore, rat.io.rs2PhysIdx, newPhysIdx) // 0 for load to x0... there's nothing wrong with this circumstance.
           
           io.lsqOut.bits.robIdx       := io.robIn.bits.robIdx
           io.lsqOut.bits.readyToIssue := !instr.isStore
-        }.otherwise {
-          io.rsOut.valid := true.B
-          io.rsOut.bits.decInstr    := instr
-          io.rsOut.bits.robIdx      := io.robIn.bits.robIdx
-          io.rsOut.bits.physIdx     := newPhysIdx
+
+          printf("[DU] dispatch to LSQ. RoBIdx: %d, instr: %x\n",
+                 io.robIn.bits.robIdx, instr.inst)
+          printf("[DU] dispatch to LSQ. dataReady: %d, data: %d, dataPhysIdx: %x\n",
+                 Mux(instr.isStore, io.rfIn.rs2Ready, false.B), io.rfIn.rs2Value, Mux(instr.isStore, rat.io.rs2PhysIdx, rat.io.rdPhysIdx))
+          // check CDB
+          when(instr.isStore && !io.rfIn.rs2Ready && io.cdbIn.valid && io.cdbIn.bits.physIdx === rat.io.rs2PhysIdx) {
+            io.lsqOut.bits.dataReady := true.B
+            io.lsqOut.bits.data := io.cdbIn.bits.data
+            printf("[DU] dispatch to LSQ (just got data). RoBIdx: %d, instr: %x\n",
+                   io.robIn.bits.robIdx, instr.inst)
+            printf("[DU] dispatch to LSQ (just got data). dataReady: %d, data: %d, dataPhysIdx: %x\n",
+                   true.B, io.cdbIn.bits.data, Mux(instr.isStore, rat.io.rs2PhysIdx, rat.io.rdPhysIdx))
+          }
+        }
+        
+        printf("[DU] dispatch to RS. RoBIdx: %d, physIdx: %d, instr: %x\n", io.robIn.bits.robIdx, io.robOut.bits.physIdx, instr.inst)
+        io.rsOut.valid := true.B
+        io.rsOut.bits.decInstr    := instr
+        io.rsOut.bits.robIdx      := io.robIn.bits.robIdx
+        io.rsOut.bits.physIdx     := newPhysIdx
           
-          // src1
-          io.rsOut.bits.rs1Ready    := !instr.hasSrc1 || io.rfIn.rs1Ready
-          io.rsOut.bits.rs1PhysIdx  := rat.io.rs1PhysIdx
-          io.rsOut.bits.rs1Value    := io.rfIn.rs1Value
+        // src1
+        io.rsOut.bits.rs1Ready    := !instr.hasSrc1 || io.rfIn.rs1Ready
+        io.rsOut.bits.rs1PhysIdx  := rat.io.rs1PhysIdx
+        io.rsOut.bits.rs1Value    := io.rfIn.rs1Value
           
-          // src2 (register or immediate)
-          io.rsOut.bits.rs2Ready    := !instr.hasSrc2 || io.rfIn.rs2Ready
-          io.rsOut.bits.rs2PhysIdx  := rat.io.rs2PhysIdx
-          io.rsOut.bits.rs2Value    := Mux(instr.hasSrc2, io.rfIn.rs2Value, instr.imm)
+        // src2 (register or immediate)
+        io.rsOut.bits.rs2Ready    := !instr.hasSrc2 || io.rfIn.rs2Ready
+        io.rsOut.bits.rs2PhysIdx  := rat.io.rs2PhysIdx
+        io.rsOut.bits.rs2Value    := Mux(instr.hasSrc2, io.rfIn.rs2Value, instr.imm)
+
+        printf("[DU] dispatch to RS. rs1Ready: %b. rs1PhysIdx: %d, rs1Value: %d\n",
+               !instr.hasSrc1 || io.rfIn.rs1Ready, rat.io.rs1PhysIdx, io.rfIn.rs1Value)
+        printf("[DU] dispatch to RS. rs2Ready: %b. rs2PhysIdx: %d, rs2Value: %d\n",
+               !instr.hasSrc2 || io.rfIn.rs2Ready, rat.io.rs2PhysIdx, io.rfIn.rs2Value)
+        
+        // check CDB
+        when(instr.hasSrc1 && !io.rfIn.rs1Ready && io.cdbIn.valid && io.cdbIn.bits.physIdx === rat.io.rs1PhysIdx) {
+          io.rsOut.bits.rs1Ready := true.B
+          io.rsOut.bits.rs1Value := io.cdbIn.bits.data
+          printf("[DU] dispatch to RS (just got data1). rs1Ready: %b. rs1PhysIdx: %d, rs1Value: %d\n",
+                 true.B, rat.io.rs1PhysIdx, io.cdbIn.bits.data)
+        }
+        when(instr.hasSrc2 && !io.rfIn.rs2Ready && io.cdbIn.valid && io.cdbIn.bits.physIdx === rat.io.rs2PhysIdx) {
+          io.rsOut.bits.rs2Ready := true.B
+          io.rsOut.bits.rs2Value := io.cdbIn.bits.data
+          printf("[DU] dispatch to RS (just got data2). rs2Ready: %b. rs2PhysIdx: %d, rs2Value: %d\n",
+                 true.B, rat.io.rs2PhysIdx, io.cdbIn.bits.data)
         }
 
         state := State.sIdle

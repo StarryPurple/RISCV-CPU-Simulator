@@ -59,11 +59,13 @@ class MemoryInterface extends Module {
 
   when(canAccept) {
     when(io.lsqIn.valid) {
+      printf("[MI] Received LSQ req. isWrite = %b, addr: %x, data: %d(%x)\n", io.lsqIn.bits.isWrite, io.lsqIn.bits.addr, io.lsqIn.bits.data, io.lsqIn.bits.data)
       activeReq := io.lsqIn.bits
       activeFromLSQ := true.B
       activeEpoch := epoch
       when(io.lsqIn.fire) { state := State.sBusy }
     } .elsewhen(io.ifIn.valid) {
+      printf("[MI] Received IF req. addr: %x\n", io.ifIn.bits.addr)
       activeReq := io.ifIn.bits
       activeFromLSQ := false.B
       activeEpoch := epoch
@@ -84,6 +86,7 @@ class MemoryInterface extends Module {
   when(state === State.sBusy) {
     when(io.ramIn.fire) {
       when(activeEpoch === epoch && !io.flush.valid) {
+        printf("[MI] update rdataReg: %d(%x)\n", io.ramIn.bits.rdata, io.ramIn.bits.rdata)
         rdataReg := io.ramIn.bits.rdata
         state    := State.sReady
       } .otherwise {
@@ -107,6 +110,7 @@ class MemoryInterface extends Module {
     when(io.flush.valid) {
       state := State.sIdle
     } .elsewhen(targetOutReady) {
+      printf("[MI] give data %x\n", rdataReg)
       state := State.sIdle
     }
   }

@@ -39,7 +39,7 @@ class InstructionFetcher extends Module {
   // pre-decode
   val opcode  = curInstr(6, 0)
   val isJump  = (opcode === "b1101111".U) || (opcode === "b1100111".U) || (opcode === "b1100011".U)
-  val isHalt  = curInstr === TerminateInst.U
+  val isHalt  = isTerminateInst(curInstr)
 
   // MI
   val canFetch = (state === State.sIdle) && !isTerminated && !io.flush.valid
@@ -71,13 +71,21 @@ class InstructionFetcher extends Module {
       }
     }
     is(State.sBusy) {
+      printf("[IF] busy, curPC: %d(%x)\n", predPC, predPC)
       io.miIn.ready := true.B
       when(io.miIn.fire) {
         curInstr := io.miIn.bits.data
         state := State.sPred
+        when(io.miIn.bits.data === 0.U) {
+          // instr out of bound. stop.
+          printf("[IF] PC out of bound. Stop. ========================================\n")
+          isTerminated := true.B
+          state := State.sIdle
+        }
       }
     }
     is(State.sPred) {
+      printf("[IF] pred, curInstr: %x\n", curInstr)
       when(isJump) {
         io.predIn.ready := true.B
         when(io.predIn.fire) {
@@ -92,8 +100,10 @@ class InstructionFetcher extends Module {
       }
     }
     is(State.sReady) {
+      printf("[IF] ready, curInstr: %x, nextPC: %d(%x)\n", curInstr, predPC, predPC)
       when(io.decOut.fire) {
         when(isHalt) {
+          printf("[IF] Termination Triggered. ---------------------------------------------------\n")
           isTerminated := true.B
         }
         state := State.sIdle
@@ -105,5 +115,9 @@ class InstructionFetcher extends Module {
     state        := State.sIdle
     isTerminated := false.B
     pc           := io.flush.bits.targetPC
+    printf("[IF] pc reset to %x\n", io.flush.bits.targetPC)
+    when(isTerminated) {
+      printf("[IF] termination cancelled. xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n")
+    }
   }
 }

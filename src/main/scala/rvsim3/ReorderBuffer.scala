@@ -31,10 +31,11 @@ class RoBEntry extends Bundle {
   val pc          = Addr
   val predPC      = Addr
   val decInstr    = new DecodedInst
-  val physIdx     = Config.PhysIndex
-  val prePhysIdx  = Config.PhysIndex
+  val physIdx     = PhysIndex
+  val prePhysIdx  = PhysIndex
   val isReady     = Bool()
-  val value       = Config.XData
+  val value       = XData
+  val addr        = Addr
 }
 
 class ReorderBuffer extends Module {
@@ -60,6 +61,7 @@ class ReorderBuffer extends Module {
   io.duIn.ready         := !rob.isFull
   when(io.duIn.fire) {
     rob.enq(io.duIn.bits)
+    printf("[RoB] alloc new id. robIdx: %d\n", rob.tailIdx)
   }
 
   // CDB writeback. check robIdx.
@@ -67,7 +69,9 @@ class ReorderBuffer extends Module {
     val payload = io.cdbIn.bits
     val entry = rob.buffer(payload.robIdx)
     entry.value   := payload.data
+    entry.addr    := payload.addr
     entry.isReady := true.B
+    printf("[RoB] received result. robIdx: %d, data: %d(%x), addr: %d(%x)\n", payload.robIdx, payload.data, payload.data, payload.addr, payload.addr)
   }
 
   object State extends ChiselEnum {
@@ -78,8 +82,8 @@ class ReorderBuffer extends Module {
   val headEntry = rob.buffer(rob.headIdx)
   val canCommit = headEntry.isReady && state === State.sIdle && !rob.isEmpty
 
-  val isBranch      = headEntry.decInstr.isBr
-  val mispredicted  = isBranch && (headEntry.value =/= headEntry.predPC)
+  val isBranch      = headEntry.decInstr.isBranch
+  val mispredicted  = isBranch && (headEntry.addr =/= headEntry.predPC)
 
   // default outputs
   io.lsqOut.valid   := false.B
@@ -107,26 +111,31 @@ class ReorderBuffer extends Module {
           // enter rollback state
           state := State.sRollback
           
-          actualPCReg := headEntry.value
+          actualPCReg := headEntry.addr
           io.flushOut.valid := true.B
-          io.flushOut.bits.targetPC := actualPCReg
+          io.flushOut.bits.targetPC := headEntry.addr
           
           // Update Predictor if it's a branch
           io.predOut.valid := isBranch
           io.predOut.bits.instrAddr := headEntry.pc
-          io.predOut.bits.actualPC := headEntry.value
+          io.predOut.bits.actualPC := headEntry.addr
           io.predOut.bits.actualTaken := false.B
 
+          rob.deq() // this valid instr shall not be rolled back
+
+          printf("[RoB] mispredicted. robIdx: %d, instr: %x, instrAddr: %x, wrongPC: %x, actualPC: %x\n", rob.headIdx, headEntry.decInstr.inst, headEntry.pc, headEntry.predPC, headEntry.addr)
         }.otherwise {
           // normal retirement
           io.flOut.valid := (headEntry.decInstr.rd =/= 0.U) && headEntry.decInstr.writeRf
+          printf("[RoB] commit. robIdx: %d, instr: %x\n", rob.headIdx, headEntry.decInstr.inst)
+          printf("[RoB] commit: isBranch = %b, actualPC = %x, predPC = %x\n", isBranch, headEntry.addr, headEntry.predPC)
           
           // valid: must wait for ready(fire), invalid: just go on.
           when(io.flOut.ready || !io.flOut.valid) {
-            val isTerminateInst = headEntry.decInstr.inst === TerminateInst.U
+            val isTerminate = isTerminateInst(headEntry.decInstr.inst)
 
             // signal LSQ if it's a store
-            io.lsqOut.valid := headEntry.decInstr.isStore && !isTerminateInst
+            io.lsqOut.valid := headEntry.decInstr.isStore && !isTerminate
             io.lsqOut.bits.robIdx := rob.headIdx
             
             // Update Predictor if it's a branch
@@ -135,8 +144,9 @@ class ReorderBuffer extends Module {
             io.predOut.bits.actualPC := headEntry.value
             io.predOut.bits.actualTaken := true.B
 
-            when(isTerminateInst) {
+            when(isTerminate) {
               isTerminatedReg := true.B
+              printf("[RoB] Termination Triggered. ++++++++++++++++++++++++++++++++++++++\n")
             }
 
             rob.deq()
@@ -146,11 +156,12 @@ class ReorderBuffer extends Module {
     }
 
     is(State.sRollback) {
-      // Keep flushing front-end until RoB is cleared
-      io.flushOut.valid := true.B
-      io.flushOut.bits.targetPC := actualPCReg
-      
       when(!rob.isEmpty) {
+        printf("[RoB] Try to rollback.\n")
+        // Keep flushing front-end until RoB is cleared
+        io.flushOut.valid := true.B
+        io.flushOut.bits.targetPC := actualPCReg
+      
         // Peek at the tail without popping yet to check if DU is ready
         val lastEntry = rob.back()
         
@@ -161,6 +172,7 @@ class ReorderBuffer extends Module {
         // Only pop from tail when DU (RAT) acknowledges the recovery
         // If the instruction didn't write to RF, pop immediately
         when(io.duFlush.ready || !lastEntry.decInstr.writeRf) {
+          printf("[RoB] Rollback. writeRf: %b, archIdx: %d, prePhysIdx: %d\n", lastEntry.decInstr.writeRf, lastEntry.decInstr.rd, lastEntry.prePhysIdx)
           rob.popBack()
         }
       }.otherwise {

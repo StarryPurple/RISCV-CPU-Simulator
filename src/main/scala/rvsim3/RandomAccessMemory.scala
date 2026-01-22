@@ -24,7 +24,7 @@ class RandomAccessMemory extends Module {
   require(AddrLen == 32, "AddrLen only support 32 now")
   require(MemSize % 4 == 0, "Memory size must be divided by 4")
 
-  val mem = SyncReadMem(MemSize / 4, Vec(4, UInt(8.W)))
+  val mem = Mem(MemSize / 4, Vec(4, UInt(8.W)))
 
   object State extends ChiselEnum {
     val sIdle, sBusy, sReady = Value
@@ -51,12 +51,13 @@ class RandomAccessMemory extends Module {
         val wordAddr = io.in.bits.addr(31, 2)
         isWrite := io.in.bits.isWrite
         
+        printf("[RAM] running req. addr: %x\n", io.in.bits.addr)
         when(io.in.bits.isWrite) {
           val wdataVec = VecInit(Seq.tabulate(4)(i => io.in.bits.wdata(8 * i + 7, 8 * i)))
           mem.write(wordAddr, wdataVec, io.in.bits.wmask.asBools)
           rdataReg := 0.U // invalid though unused value
         } .otherwise {
-          rdataReg := mem.read(wordAddr, true.B).asUInt
+          rdataReg := mem.read(wordAddr).asUInt
         }
         state := State.sBusy
       }
@@ -65,6 +66,7 @@ class RandomAccessMemory extends Module {
     is(State.sBusy) {
       // for read: mem.read has updated in this cycle, together with rdataReg.
       // for write: Assume nothing bad happens.
+      printf("[RAM] busy reading/writing. data: %d(%x)\n", rdataReg, rdataReg)
       state := State.sReady
     }
 

@@ -40,6 +40,7 @@ class RegisterFile extends Module {
     when(pIdx =/= 0.U) { // protect x0
       dataArray(pIdx)  := io.cdbIn.bits.data
       readyArray(pIdx) := true.B
+      printf("[RF] write data. physIdx: %d, data: %d\n", pIdx, io.cdbIn.bits.data)
     }
   }
 

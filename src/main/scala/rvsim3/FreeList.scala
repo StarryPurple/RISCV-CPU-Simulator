@@ -26,6 +26,7 @@ class FreeList extends Module {
   io.duOut.bits.physIdx := queue.buffer(queue.headIdx)
 
   when(io.duIn.fire) {
+    printf("[FL] allocated a physIdx: %d\n", queue.buffer(queue.headIdx))
     queue.deq()
   }
 
@@ -33,6 +34,7 @@ class FreeList extends Module {
   io.robIn.ready := !queue.isFull
   
   when(io.robIn.fire) {
+    printf("[FL] recycled a physIdx: %d\n", io.robIn.bits.physIdx)
     queue.enq(io.robIn.bits.physIdx)
   }
 }

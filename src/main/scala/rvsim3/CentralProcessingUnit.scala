@@ -3,6 +3,7 @@ package rvsim3
 import chisel3._
 import chisel3.util._
 import Config._
+import _root_.circt.stage.ChiselStage
 
 class CentralProcessingUnit extends Module {
   val io = IO(new Bundle {
@@ -25,6 +26,10 @@ class CentralProcessingUnit extends Module {
   val cdb  = Module(new CommonDataBus(numSources = 2)) // 0: ALU, 1: LSQ
   val mi   = Module(new MemoryInterface)
   val ram  = Module(new RandomAccessMemory)
+
+
+  alu.io.lsqOut <> lsq.io.aluIn
+
 
   pred.io.ifOut  <> ifu.io.predIn
   ifu.io.predOut <> pred.io.ifIn
@@ -54,6 +59,7 @@ class CentralProcessingUnit extends Module {
   rs.io.cdbIn   := globalCDB
   lsq.io.cdbIn  := globalCDB
   rf.io.cdbIn   := globalCDB
+  du.io.cdbIn   := globalCDB
 
   rf.io.duIn <> du.io.rfOut
   du.io.rfIn := rf.io.duOut
@@ -87,4 +93,11 @@ class CentralProcessingUnit extends Module {
   rf.io.physIdxQuery := du.io.x10PhysIdx
   io.returnVal       := rf.io.valueQuery
   io.isTerminated    := rob.io.isTerminated
+}
+
+object CPUElaborate extends App {
+  ChiselStage.emitSystemVerilogFile(
+    new CentralProcessingUnit,
+    Array("--target-dir", "generated", "--split-verilog")
+  )
 }

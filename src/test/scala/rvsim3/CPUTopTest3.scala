@@ -47,7 +47,7 @@ class CPUTopSpec3 extends AnyFlatSpec with ChiselScalatestTester {
       dut.io.preload.en.poke(false.B)
       println(s"Load complete. Last Address: ${currentAddr.toHexString}")
       
-      val maxCycles = 150
+      val maxCycles = 1000
       var cycles = 0
       var halted = false
 

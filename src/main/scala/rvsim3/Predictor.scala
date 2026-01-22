@@ -22,8 +22,8 @@ class Predictor extends Module {
   val btbTarget = Reg(Vec(btbSize, Addr))
   // Tags: last full instrAddr in the correlated slot.
   val btbTags = RegInit(VecInit(Seq.fill(btbSize)(0.U(AddrLen.W))))
-  // BHT: 2-bit counter. Initially 01 (not taken)
-  val bht = RegInit(VecInit(Seq.fill(btbSize)(1.U(2.W))))
+  // BHT: 4-bit counter. Initially 0011 (not taken)
+  val bht = RegInit(VecInit(Seq.fill(btbSize)("b0011".U(4.W))))
 
   // RoB update
   when(io.robIn.valid) {
@@ -35,9 +35,9 @@ class Predictor extends Module {
     // 更新 BHT 饱和计数器
     val oldCounter = bht(updateIdx)
     when(io.robIn.bits.actualTaken) {
-      bht(updateIdx) := Mux(oldCounter === 3.U, 3.U, oldCounter + 1.U)
+      bht(updateIdx) := Mux(oldCounter === "b1111".U, "b1111".U, oldCounter + 1.U)
     } .otherwise {
-      bht(updateIdx) := Mux(oldCounter === 0.U, 0.U, oldCounter - 1.U)
+      bht(updateIdx) := Mux(oldCounter === "b0000".U, "b0000".U, oldCounter - 1.U)
     }
   }
 
@@ -53,7 +53,7 @@ class Predictor extends Module {
   io.ifOut.valid := (state === State.sPred)
 
   val predIdx = getIdx(reqPC)
-  val isTaken = btbTags(predIdx) === reqPC && bht(predIdx) >= 2.U
+  val isTaken = btbTags(predIdx) === reqPC && bht(predIdx) >= "b0100".U
 
   io.ifOut.bits.predPC := Mux(isTaken, btbTarget(predIdx), reqPC + 4.U)
 

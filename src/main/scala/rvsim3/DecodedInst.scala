@@ -32,17 +32,20 @@ class DecodedInst extends Bundle {
     val uImm = Cat(inst(31, 12), 0.U(12.W))
     val jImm = Cat(Fill(11, inst(31)), inst(31), inst(19, 12), inst(20), inst(30, 21), 0.U(1.W))
     val shamt = inst(24, 20)
-
-    MuxLookup(itype.asUInt, iImm)(Seq(
-      InstrType.LUI.asUInt   -> uImm,
-      InstrType.AUIPC.asUInt -> uImm,
-      InstrType.JAL.asUInt   -> jImm,
-      InstrType.BEQ.asUInt   -> bImm, InstrType.BNE.asUInt  -> bImm,
-      InstrType.BLT.asUInt   -> bImm, InstrType.BGE.asUInt  -> bImm,
-      InstrType.BLTU.asUInt  -> bImm, InstrType.BGEU.asUInt -> bImm,
-      InstrType.SB.asUInt    -> sImm, InstrType.SH.asUInt   -> sImm, InstrType.SW.asUInt -> sImm,
-      InstrType.SLLI.asUInt  -> shamt, InstrType.SRLI.asUInt -> shamt, InstrType.SRAI.asUInt -> shamt
+    val finalImm = MuxCase(iImm, Seq(
+      (itype === InstrType.LUI || itype === InstrType.AUIPC) -> uImm,
+      isJal -> jImm,
+      isB   -> bImm,
+      isStore -> sImm,
+      (itype === InstrType.SLLI || itype === InstrType.SRLI || itype === InstrType.SRAI) -> shamt
     ))
+    /*
+    printf("[DEBUG_BIT] inst(31)=%d inst(7)=%d inst(30,25)=%x inst(11,8)=%x\n", 
+        inst(31), inst(7), inst(30,25), inst(11,8))
+    printf("[DEBUG_IMM] PC=%d Instr=%x itype=%d isB=%b bImm=%x finalImm=%x\n",
+           pc, inst, itype.asUInt, isB, bImm, finalImm)
+    */
+    finalImm
   }
 
   def hasSrc1: Bool = {
@@ -67,11 +70,12 @@ class DecodedInst extends Bundle {
     !noWrite && (rd =/= 0.U)
   }
 
-  def isLoad  = itype >= InstrType.LB  && itype <= InstrType.LHU
-  def isStore = itype >= InstrType.SB  && itype <= InstrType.SW
-  def isBr    = itype >= InstrType.BEQ && itype <= InstrType.BGEU
-  def isJal   = itype === InstrType.JAL
-  def isJalr  = itype === InstrType.JALR
+  def isLoad   = itype >= InstrType.LB  && itype <= InstrType.LHU
+  def isStore  = itype >= InstrType.SB  && itype <= InstrType.SW
+  def isJal    = itype === InstrType.JAL
+  def isJalr   = itype === InstrType.JALR
+  def isB      = itype >= InstrType.BEQ && itype <= InstrType.BGEU
+  def isBranch = isB || isJal || isJalr
 
   def memDataLen: UInt = {
     MuxLookup(itype.asUInt, 0.U)(Seq(

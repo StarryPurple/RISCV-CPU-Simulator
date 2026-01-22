@@ -4,14 +4,14 @@
 
 本文档描述简化 RI32V CPU 模拟器第三版（对应rvsim3文件夹部分）。
 
-本 CPU 模拟器具体包含以下元件：
+模拟器具体包含以下元件：
 
 MI (MemoryInterface)，IF (InstructionFetcher)，Dec (Decoder), DU (DispatchUnit), RS (ReservationStation), ALU (ArithmeticLogicUnit), LSQ (LoadStoreQueue), RoB (ReorderBuffer), RF (RegisterFile), Pred (Predictor), CDB (CommonDataBus)，FreeList
 以及抽象为接口而非元件的 FlushPipeline，设计上不在CPU内部但仍然模拟为元件的 RAM。
 
 - RAM
 与 MI 相连。
-单个 SyncReadMem 模拟，提供4MB，配置 .text = 0x0020 0000，.data 由程序分配，一般程序分配栈空间 128KB.
+单个 SyncReadMem 模拟，提供4MB（外部配置 .text = 0x0020 0000），.data 由程序分配，一般程序分配栈空间 128KB.
 特殊接口：提供读写窗口，供模拟开始前预加载指令。
 每次接到一个读写请求，需要花费一个周期进行操作。
 写操作直接完成，读操作仍然需要等待 MI 背压握手后传回数据。

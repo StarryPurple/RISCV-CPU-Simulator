@@ -33,5 +33,11 @@ object Config {
   def PhysIndex = UInt(PhysIndexLen.W)
   
   val StartAddr = 0.U(AddrLen.W)
-  val TerminateInst = 0xfe000fa3L // sb x0, -1(x0)
+  val InvalidAddr = 1234579.U(AddrLen.W)
+
+  def isTerminateInst(inst: UInt) = {
+    val TerminateInst1 = 0xfe000fa3L // sb x0, -1(x0)
+    // val TerminateInst2 = 0x0ff00513L // li a0,255
+    inst === TerminateInst1.U
+  }
 }

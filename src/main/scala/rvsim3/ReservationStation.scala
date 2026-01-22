@@ -44,8 +44,23 @@ class ReservationStation extends Module {
   io.duIn.ready := canEnq
   when(io.duIn.fire) {
     val idx = freeIdx.bits
+    val newEntry = io.duIn.bits
     poolValid(idx) := true.B
-    poolData(idx)  := io.duIn.bits
+    poolData(idx)  := newEntry
+    
+    // and... check CDB.
+    when(io.cdbIn.valid) {
+      when(!newEntry.rs1Ready && newEntry.rs1PhysIdx === io.cdbIn.bits.physIdx) {
+        poolData(idx).rs1Value := io.cdbIn.bits.data
+        poolData(idx).rs1Ready := true.B
+        printf("[RS] received CDB rs1(at duIn). rsIdx: %d, physIdx: %d, data: %d(%x)\n", idx, io.cdbIn.bits.physIdx, io.cdbIn.bits.data, io.cdbIn.bits.data)
+      }
+      when(!newEntry.rs2Ready && newEntry.rs2PhysIdx === io.cdbIn.bits.physIdx) {
+        poolData(idx).rs2Value := io.cdbIn.bits.data
+        poolData(idx).rs2Ready := true.B
+        printf("[RS] received CDB rs2(at duIn). rsIdx: %d, physIdx: %d, data: %d(%x)\n", idx, io.cdbIn.bits.physIdx, io.cdbIn.bits.data, io.cdbIn.bits.data)
+      }
+    }
   }
 
   // 3. CDB
@@ -55,10 +70,12 @@ class ReservationStation extends Module {
         when(!poolData(i).rs1Ready && poolData(i).rs1PhysIdx === io.cdbIn.bits.physIdx) {
           poolData(i).rs1Value := io.cdbIn.bits.data
           poolData(i).rs1Ready := true.B
+          printf("[RS] received CDB rs1. rsIdx: %d, physIdx: %d, data: %d(%x)\n", i.U, io.cdbIn.bits.physIdx, io.cdbIn.bits.data, io.cdbIn.bits.data)
         }
         when(!poolData(i).rs2Ready && poolData(i).rs2PhysIdx === io.cdbIn.bits.physIdx) {
           poolData(i).rs2Value := io.cdbIn.bits.data
           poolData(i).rs2Ready := true.B
+          printf("[RS] received CDB rs2. rsIdx: %d, physIdx: %d, data: %d(%x)\n", i.U, io.cdbIn.bits.physIdx, io.cdbIn.bits.data, io.cdbIn.bits.data)
         }
       }
     }

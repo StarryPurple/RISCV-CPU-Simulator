@@ -6,6 +6,7 @@ import rvsim3.Config._
 
 class CDBPayload extends Bundle {
   val data    = XData
+  val addr    = Addr // only valid at JAL/JALR
   val physIdx = PhysIndex
   val robIdx  = RoBIndex
 }
@@ -22,4 +23,9 @@ class CommonDataBus(val numSources: Int) extends Module {
   arbiter.io.out.ready := true.B // not waiting
   io.out.valid := arbiter.io.out.valid
   io.out.bits  := arbiter.io.out.bits
+
+  when(io.out.valid) {
+    printf("[CDB] broadcasts data: %d(%x), addr: %d(%x) physIdx: %d, robIdx: %d\n",
+           io.out.bits.data, io.out.bits.data, io.out.bits.addr, io.out.bits.addr, io.out.bits.physIdx, io.out.bits.robIdx)
+  }
 }
