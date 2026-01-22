@@ -34,6 +34,8 @@ class CPUTopSpec3 extends AnyFlatSpec with ChiselScalatestTester {
                 dut.io.preload.addr.poke(currentAddr.U)
                 dut.io.preload.data.poke(word.U)
                 dut.clock.step(1)
+
+                println("[Preload] Load instr ", word, " at addr ", currentAddr)
                 
                 currentAddr += 4
               }
@@ -45,7 +47,7 @@ class CPUTopSpec3 extends AnyFlatSpec with ChiselScalatestTester {
       dut.io.preload.en.poke(false.B)
       println(s"Load complete. Last Address: ${currentAddr.toHexString}")
       
-      val maxCycles = 5000
+      val maxCycles = 150
       var cycles = 0
       var halted = false
 
@@ -58,12 +60,9 @@ class CPUTopSpec3 extends AnyFlatSpec with ChiselScalatestTester {
           println(s"Result (x10/a0): $result")
           halted = true
         } else {
+          println(s"\nCycle $cycles...")
           dut.clock.step(1)
           cycles += 1
-          
-          if (cycles % 10 == 0) {
-            println(s"Cycle $cycles...")
-          }
         }
       }
 
@@ -74,4 +73,5 @@ class CPUTopSpec3 extends AnyFlatSpec with ChiselScalatestTester {
       println("\n--- Simulation Finished ---")
     }
   }
+  
 }
