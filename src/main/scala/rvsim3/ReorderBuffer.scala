@@ -45,7 +45,7 @@ class ReorderBuffer extends Module {
     val lsqOut  = Valid(new RoBToLSQ)
     val predOut = Valid(new RoBToPred)
     val flOut   = Decoupled(new RoBToFL)
-    val cdbIn   = Valid(new CDBPayload)
+    val cdbIn   = Flipped(Valid(new CDBPayload))
     val flushOut = Valid(new FlushPipeline)
 
     val isTerminated = Bool()
@@ -85,12 +85,19 @@ class ReorderBuffer extends Module {
   io.lsqOut.valid   := false.B
   io.lsqOut.bits.robIdx := rob.headIdx
   io.predOut.valid  := false.B
+  io.predOut.bits   := DontCare
   io.flOut.valid    := false.B
   io.flOut.bits.physIdx := headEntry.prePhysIdx
   io.duFlush.valid  := false.B
   io.duFlush.bits.archIdx   := 0.U
   io.duFlush.bits.prePhysIdx := 0.U
   io.flushOut.valid := false.B
+  io.flushOut.bits  := DontCare
+
+  val isTerminatedReg = RegInit(false.B)
+  val actualPCReg     = Reg(Addr)
+
+  io.isTerminated := isTerminatedReg
 
   // state machine: commit and rollback
   switch(state) {
@@ -99,7 +106,10 @@ class ReorderBuffer extends Module {
         when(mispredicted) {
           // enter rollback state
           state := State.sRollback
+          
+          actualPCReg := headEntry.value
           io.flushOut.valid := true.B
+          io.flushOut.bits.targetPC := actualPCReg
           
           // Update Predictor if it's a branch
           io.predOut.valid := isBranch
@@ -114,7 +124,7 @@ class ReorderBuffer extends Module {
           // valid: must wait for ready(fire), invalid: just go on.
           when(io.flOut.ready || !io.flOut.valid) {
             val isTerminateInst = headEntry.decInstr.inst === TerminateInst.U
-            
+
             // signal LSQ if it's a store
             io.lsqOut.valid := headEntry.decInstr.isStore && !isTerminateInst
             io.lsqOut.bits.robIdx := rob.headIdx
@@ -126,7 +136,7 @@ class ReorderBuffer extends Module {
             io.predOut.bits.actualTaken := true.B
 
             when(isTerminateInst) {
-              io.isTerminated := true.B
+              isTerminatedReg := true.B
             }
 
             rob.deq()
@@ -138,6 +148,7 @@ class ReorderBuffer extends Module {
     is(State.sRollback) {
       // Keep flushing front-end until RoB is cleared
       io.flushOut.valid := true.B
+      io.flushOut.bits.targetPC := actualPCReg
       
       when(!rob.isEmpty) {
         // Peek at the tail without popping yet to check if DU is ready

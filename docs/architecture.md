@@ -116,6 +116,6 @@ DU 向其申请（还是留一个是否成功的信号），RoB 向其返还。
 
 - FlushPipeline
 从 RoB 引出，引至 IF，Dec，DU，RS，MI。
-包含失败的跳转指令对应的 robIdx（DU 需要），以及正确的 pc（IF 需要）。
+包含失败的跳转指令对应的正确 pc（IF 需要）。
 RoB 归还物理寄存器编号给 FreeList 设计为需要多个周期，在此之前 Flush 信号不会结束。
 所有具备状态机的 FlushPipeline 接收者都会有“在 Flush 期间将状态设为默认”，这会在 Flush 的每一个周期都执行一次，保证对应元件的阻塞静默。

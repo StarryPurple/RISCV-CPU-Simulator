@@ -4,9 +4,6 @@ import chisel3._
 import chisel3.util._
 
 object Config {
-  val StartAddr = 0.U(AddrLen.W)
-  val TerminateInst = 0xfe000fa3L // sb x0, -1(x0)
-
   val MemSize = 1024 * 1024 * 4   // 4MB
   val NumLSBEntries = 16
   val NumRSEntries = 16
@@ -34,4 +31,7 @@ object Config {
   val NumPhysRegs = NumArchRegs + NumRoBEntries + 16 // add a margin, in case something bad happens
   val PhysIndexLen = log2Ceil(NumPhysRegs)
   def PhysIndex = UInt(PhysIndexLen.W)
+  
+  val StartAddr = 0.U(AddrLen.W)
+  val TerminateInst = 0xfe000fa3L // sb x0, -1(x0)
 }

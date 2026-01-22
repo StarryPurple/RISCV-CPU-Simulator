@@ -6,5 +6,4 @@ import Config._
 
 class FlushPipeline extends Bundle {
   val targetPC = Addr
-  val robIdx = RoBIndex
 }

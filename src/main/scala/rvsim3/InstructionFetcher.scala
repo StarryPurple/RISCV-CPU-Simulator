@@ -59,6 +59,10 @@ class InstructionFetcher extends Module {
   io.decOut.bits.pc     := curPC
   io.decOut.bits.predPC := predPC
 
+  // default
+  io.predIn.ready := false.B
+  io.miIn.ready   := false.B
+
   switch(state) {
     is(State.sIdle) {
       when(io.miOut.fire) {

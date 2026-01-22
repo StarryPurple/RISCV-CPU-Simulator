@@ -33,9 +33,10 @@ class CentralProcessingUnit extends Module {
 
   dec.io.duOut <> du.io.decIn
 
-  du.io.robIn <> rob.io.duOut
-  du.io.flIn  <> fl.io.duOut
-  du.io.flOut <> fl.io.duIn
+  du.io.robIn    <> rob.io.duOut
+  du.io.flIn     <> fl.io.duOut
+  du.io.flOut    <> fl.io.duIn
+  du.io.robFlush <> rob.io.duFlush
 
   rs.io.duIn  <> du.io.rsOut
   lsq.io.duIn <> du.io.lsqOut

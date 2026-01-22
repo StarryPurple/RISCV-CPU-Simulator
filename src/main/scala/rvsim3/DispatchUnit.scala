@@ -99,14 +99,20 @@ class DispatchUnit extends Module {
   // dispatch condition
   val backendReady = Mux(isMem, io.lsqOut.ready, io.rsOut.ready)
   val canDispatch  = io.decIn.valid && io.robIn.valid && io.robOut.ready && 
-                     (!needPhys || io.flIn.valid) && backendReady
+                     (!needPhys || io.flIn.valid) && backendReady && !io.robFlush.valid
 
-  // 2. default outputs
+  // default outputs
   io.decIn.ready  := false.B
+  io.robIn.ready  := false.B
+  io.flIn.ready   := false.B
   io.flOut.valid  := false.B
+  io.flOut.bits   := DontCare
   io.robOut.valid := false.B
+  io.robOut.bits  := DontCare
   io.rsOut.valid  := false.B
+  io.rsOut.bits   := DontCare
   io.lsqOut.valid := false.B
+  io.lsqOut.bits  := DontCare
   
   rat.io.updateEn   := false.B
   rat.io.updateArch := instr.rd
@@ -118,7 +124,6 @@ class DispatchUnit extends Module {
   rat.io.rollbackPhys := io.robFlush.bits.prePhysIdx
   io.robFlush.ready   := true.B 
 
-  // 3. state machine
   switch(state) {
     is(State.sIdle) {
       when(io.decIn.valid && !io.robFlush.valid) {
