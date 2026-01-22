@@ -9,8 +9,9 @@ class IFToPred extends Bundle {
 }
 
 class IFToDec extends Bundle {
-  val instr = Inst
-  val pc    = Addr
+  val instr  = Inst
+  val pc     = Addr
+  val predPC = Addr
 }
 
 class InstructionFetcher extends Module {
@@ -33,6 +34,7 @@ class InstructionFetcher extends Module {
 
   val curInstr = Reg(Inst)
   val curPC    = Reg(Addr)
+  val predPC   = Reg(Addr)
 
   // pre-decode
   val opcode  = curInstr(6, 0)
@@ -52,9 +54,10 @@ class InstructionFetcher extends Module {
   io.predOut.bits.pc  := curPC
 
   // Decoder
-  io.decOut.valid      := (state === State.sReady) && !io.flush.valid
-  io.decOut.bits.instr := curInstr
-  io.decOut.bits.pc    := curPC
+  io.decOut.valid       := (state === State.sReady) && !io.flush.valid
+  io.decOut.bits.instr  := curInstr
+  io.decOut.bits.pc     := curPC
+  io.decOut.bits.predPC := predPC
 
   switch(state) {
     is(State.sIdle) {
@@ -74,12 +77,14 @@ class InstructionFetcher extends Module {
       when(isJump) {
         io.predIn.ready := true.B
         when(io.predIn.fire) {
-          pc    := io.predIn.bits.predPC
-          state := State.sReady
+          predPC := io.predIn.bits.predPC
+          pc     := io.predIn.bits.predPC
+          state  := State.sReady
         }
       } .otherwise {
-        pc    := curPC + 4.U
-        state := State.sReady
+        predPC := curPC + 4.U
+        pc     := curPC + 4.U
+        state  := State.sReady
       }
     }
     is(State.sReady) {

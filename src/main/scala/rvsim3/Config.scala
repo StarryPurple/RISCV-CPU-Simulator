@@ -8,7 +8,8 @@ object Config {
   val TerminateInst = 0xfe000fa3L // sb x0, -1(x0)
 
   val MemSize = 1024 * 1024 * 4   // 4MB
-  val numLSBEntry = 16
+  val NumLSBEntries = 16
+  val NumRSEntries = 16
 
   val InstLen = 32
   val InstWidth = log2Ceil(InstLen)
@@ -27,8 +28,8 @@ object Config {
   def ArchIndex = UInt(ArchIndexLen.W)
 
   val NumRoBEntries = 16
-  val RobIndexLen = log2Ceil(NumRoBEntries)
-  def RoBIndex = UInt(RobIndexLen.W)
+  val RoBIndexLen = log2Ceil(NumRoBEntries)
+  def RoBIndex = UInt(RoBIndexLen.W)
 
   val NumPhysRegs = NumArchRegs + NumRoBEntries + 16 // add a margin, in case something bad happens
   val PhysIndexLen = log2Ceil(NumPhysRegs)

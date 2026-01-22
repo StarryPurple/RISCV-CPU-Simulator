@@ -8,20 +8,19 @@ class LSQEntry extends Bundle {
   val isWrite  = Bool()
   val mask     = UInt(4.W) // 0001: byte, 0011: half, 1111: word
 
-  val addrReady  = Bool()
-  val addr       = Addr
-  val addrRobIdx = RoBIndex
+  val addrReady   = Bool()
+  val addr        = Addr
+  val addrPhysIdx = PhysIndex
   
-  val dataReady  = Bool()
-  val data       = XData       // for load: temporarily store fetched data here
-  val dataRobIdx = RoBIndex    // for load: this is where data should be broadcast to in CDB.
+  val dataReady   = Bool()
+  val data        = XData      // for load: temporarily store fetched data here
+  val dataPhysIdx = PhysIndex  // for load: this is where data should be broadcast to in CDB. invalid for store.
 
   val readyToIssue = Bool()    // for load: always true. for store: initially false, and become true after RoB confirmation.
-  val storeRobIdx  = RoBIndex  // for store: RoB confirms this entry with this index.
-  val loadPhysIdx  = PhysIndex // for load: this is where data shoule be written to in RF.
+  val robIdx       = RoBIndex  // for store: RoB confirms this entry with this index.
 }
 
-class LoadStoreQueue(numLSBEntry: Int) extends Module {
+class LoadStoreQueue extends Module {
   val io = IO(new Bundle {
     val duIn   = Flipped(Decoupled(new LSQEntry))
     val robIn  = Flipped(Valid(new RoBToLSQ))
@@ -32,7 +31,7 @@ class LoadStoreQueue(numLSBEntry: Int) extends Module {
     val flush  = Flipped(Valid(new FlushPipeline))
   })
 
-  val lsq = CircularBuffer(Valid(new LSQEntry), numLSBEntry)
+  val lsq = CircularBuffer(Valid(new LSQEntry), NumLSBEntries)
 
   // 1. DU dispatch
   io.duIn.ready := !lsq.isFull && !io.flush.valid
@@ -45,21 +44,21 @@ class LoadStoreQueue(numLSBEntry: Int) extends Module {
   }
 
   // 2. CDB wakeup and RoB confirmation
-  for (i <- 0 until numLSBEntry) {
+  for (i <- 0 until NumLSBEntries) {
     val entry = lsq.buffer(i)
-    when(entry.valid) {
+    when(entry.valid && !io.flush.valid) {
       // addr (load/store)
-      when(!entry.bits.addrReady && io.cdbIn.valid && entry.bits.addrRobIdx === io.cdbIn.bits.robIdx) {
+      when(!entry.bits.addrReady && io.cdbIn.valid && entry.bits.addrPhysIdx === io.cdbIn.bits.physIdx) {
         entry.bits.addr      := io.cdbIn.bits.data
         entry.bits.addrReady := true.B
       }
       // data (store)
-      when(entry.bits.isWrite && !entry.bits.dataReady && io.cdbIn.valid && entry.bits.dataRobIdx === io.cdbIn.bits.robIdx) {
+      when(entry.bits.isWrite && !entry.bits.dataReady && io.cdbIn.valid && entry.bits.dataPhysIdx === io.cdbIn.bits.physIdx) {
         entry.bits.data      := io.cdbIn.bits.data
         entry.bits.dataReady := true.B
       }
       // RoB confirmation (store)
-      when(entry.bits.isWrite && !entry.bits.readyToIssue && io.robIn.valid && entry.bits.storeRobIdx === io.robIn.bits.robIdx) {
+      when(entry.bits.isWrite && !entry.bits.readyToIssue && io.robIn.valid && entry.bits.robIdx === io.robIn.bits.robIdx) {
         entry.bits.readyToIssue := true.B
       }
     }
@@ -92,8 +91,8 @@ class LoadStoreQueue(numLSBEntry: Int) extends Module {
 
   io.cdbOut.valid        := isLoad && h.dataReady && !io.flush.valid
   io.cdbOut.bits.data    := h.data
-  io.cdbOut.bits.robIdx  := h.dataRobIdx
-  io.cdbOut.bits.physIdx := h.loadPhysIdx
+  io.cdbOut.bits.robIdx  := h.robIdx
+  io.cdbOut.bits.physIdx := h.dataPhysIdx
 
   // if isLoad: shall only accept data at data not accepted. Not changing waitResp until queue pop...
   io.miIn.ready := (isLoad && !h.dataReady) || !isLoad
@@ -105,9 +104,8 @@ class LoadStoreQueue(numLSBEntry: Int) extends Module {
   )
 
   when((shallPop || io.flush.valid) && !lsq.isEmpty) {
-    val curIdx = lsq.headIdx
+    lsq.buffer(lsq.headIdx).valid := false.B
     lsq.deq()
-    lsq.buffer(curIdx).valid := false.B
     waitResp := false.B
   }
 
@@ -115,6 +113,6 @@ class LoadStoreQueue(numLSBEntry: Int) extends Module {
   when(io.flush.valid) {
     lsq.flush()
     waitResp := false.B
-    for (i <- 0 until numLSBEntry) lsq.buffer(i).valid := false.B
+    for (i <- 0 until NumLSBEntries) lsq.buffer(i).valid := false.B
   }
 }

@@ -75,9 +75,15 @@ class DecodedInst extends Bundle {
 
   def memDataLen: UInt = {
     MuxLookup(itype.asUInt, 0.U)(Seq(
-      InstrType.LB.asUInt  -> 1.U, InstrType.LBU.asUInt -> 1.U, InstrType.SB.asUInt -> 1.U,
-      InstrType.LH.asUInt  -> 2.U, InstrType.LHU.asUInt -> 2.U, InstrType.SH.asUInt -> 2.U,
-      InstrType.LW.asUInt  -> 4.U, InstrType.SW.asUInt  -> 4.U
+      InstrType.LB.asUInt -> 1.U, InstrType.LBU.asUInt -> 1.U, InstrType.SB.asUInt -> 1.U,
+      InstrType.LH.asUInt -> 2.U, InstrType.LHU.asUInt -> 2.U, InstrType.SH.asUInt -> 2.U,
+      InstrType.LW.asUInt -> 4.U, InstrType.SW.asUInt  -> 4.U
+    ))
+  }
+
+  def memDataMask: UInt = {
+    MuxLookup(memDataLen, 0.U)(Seq(
+      1.U -> "b0001".U, 2.U -> "b0011".U, 4.U -> "b1111".U
     ))
   }
 
@@ -101,7 +107,7 @@ object DecodedInst {
   def apply(raw_instr: UInt, pc: UInt): DecodedInst = {
     val d = Wire(new DecodedInst)
     d.inst := raw_instr
-    d.pc   := pc
+    d.pc := pc
     
     val f3 = raw_instr(14, 12)
     val f7 = raw_instr(31, 25)

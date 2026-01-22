@@ -5,6 +5,8 @@ import chisel3.util._
 import Config._
 
 class DecToDU extends Bundle {
+  val pc       = Addr
+  val predPC   = Addr
   val decInstr = new DecodedInst
 }
 
@@ -22,6 +24,7 @@ class Decoder extends Module {
 
   val instrReg   = Reg(Inst)
   val pcReg      = Reg(Addr)
+  val predPCReg  = Reg(Addr)
   val decodedReg = Reg(new DecodedInst)
 
   // IF
@@ -30,13 +33,16 @@ class Decoder extends Module {
   // DU
   io.duOut.valid := (state === State.sReady) && !io.flush.valid
   io.duOut.bits.decInstr := decodedReg
+  io.duOut.bits.pc       := pcReg
+  io.duOut.bits.predPC   := predPCReg
 
   switch(state) {
     is(State.sIdle) {
       when(io.ifIn.fire) {
-        instrReg := io.ifIn.bits.instr
-        pcReg    := io.ifIn.bits.pc
-        state    := State.sBusy
+        instrReg  := io.ifIn.bits.instr
+        pcReg     := io.ifIn.bits.pc
+        predPCReg := io.ifIn.bits.predPC
+        state     := State.sBusy
       }
     }
     is(State.sBusy) {

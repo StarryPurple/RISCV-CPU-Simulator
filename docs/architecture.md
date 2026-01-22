@@ -42,9 +42,11 @@ Flush 设置：强制转为 sIdle 状态。
 - DU
 维护一个逻辑/物理寄存器关系表 RAT。
 与 Dec，RoB，LSQ，RS，FreeList 相连，接通 FlushPipeline（接收者）。
-接收 Dec 传来的解析后指令，向 FreeList 给逻辑寄存器分配物理寄存器并更新 RAT，将这个分配的相关信息发给 RoB 获取 robIdx，根据指令种类将其分给 LSQ/RS。
-状态：sIdle - sAllocPhys - sWaitPhys - sAllocRoB - sWaitRoB - sDispatch
+接收 Dec 传来的解析后指令，向 FreeList 给逻辑寄存器分配物理寄存器并更新 RAT，将这个分配的相关信息发给 RoB 获取 robIdx，发给 RF 获取已知数据，根据指令种类将其分给 LSQ/RS。
+状态：sIdle - sDispatch
+在获取到指令后持续保持 sDispatch 状态，在 Dec，RoB，FL，RS/LSQ（对应接收端）都准备好时立即分发并返回 sIdle 状态。
 Flush 设置：强制转为 sIdle 状态，并根据 RoB 本周期发来的 physIdx 与 prePhysIdx 回退 RAT。Flush 状态解除时 RAT 应当回退到正确版本。
+特殊配置：RAT 需要支持查询某个逻辑寄存器对应的物理寄存器编号，DU需要为此留一个接口。
 
 - RS
 与 DU，ALU 相连，接通 CDB（接收者） 与 FlushPipeline（接收者）。
@@ -75,21 +77,23 @@ rd: targetRobIdx, readyToIssue
 Flush 设置：无条件清空所有槽位。
 
 - RoB
-与 DU，LSQ，Pred，RF，FreeList 相连，接通 CDB（接收者） 与 FlushPipeline（发出者）。
+与 DU，LSQ，Pred，FreeList 相连，接通 CDB（接收者） 与 FlushPipeline（发出者）。
+状态：sIdle - sRollback
 维护有一系列槽位（循环队列），每个槽位状态：
-rd/realPC: robIdx, decInstType, isReady, value, predPC，physIdx, prePhysIdx
+rd/realPC: robIdx, decInstType, isReady, value, predPC, prePhysIdx
 预留槽位满且不存在可推送槽位时，拒绝 DU 槽位分配请求信号。
-推送槽位时，如果是寄存器写入指令则向 RF 根据 physIdx 提交写入。
 推送槽位时，如果是内存读写指令则向 LSQ 根据 robIdx 提交操作许可。
 推送槽位时，如果是跳转指令则向 Pred 提交 realPC，如果与 predPC 不一致则同时发起 Flush 信号。
-Flush 设置：按循环队列逆向，根据失败槽位的 physIdx 与 prePhysIdx 逐个向 FreeList 返还 + 向 DU 发送记录重置 RAT，每个周期一个。
+Flush 设置：按循环队列逆向，根据失败槽位的 prePhysIdx 逐个向 FreeList 返还 + 向 DU 发送记录重置 RAT，每个周期一个。
 
 - RF
-与 DU，RoB 相连。
-设计为存储了一系列逻辑寄存器，其与32个物理寄存器间的映射关系表（RAT）存储在 DU 中。 
-在 DU 依据逻辑寄存器标号请求数据（最多为 rs1, rs2 双份）时在下周期返回
-在 RoB 依据逻辑寄存器标号请求寄存器写时接收。
+与 DU，CDB 相连。
+设计为存储了一系列逻辑寄存器，其与32个物理寄存器间的映射关系表（RAT）存储在 DU 中。
+在 DU 依据逻辑寄存器标号请求数据（最多为 rs1, rs2 双份）时在下周期返回。
+接收到 CDB 的数据写入时做出相应更改。
 不需要提供任何反压信号，一定能完成查询与写入请求。
+Flush 不会影响其内容（PRF机制保证）
+特殊配置：需要能够根据逻辑寄存器编号查询内部寄存器值。
 
 - Pred
 与 IF，RoB 相连。
@@ -108,6 +112,7 @@ LSQ 不需要通过 CDB 接收来自 LSQ 的数据，但仍然需要通过 CDB �
 与 DU，RoB 相连。
 为一个存储了可用物理寄存器编号的循环队列。大小设置为至少 32 + NumRoBSlots + 1 时不会出现分配失败。（+1 是因为 DU 向 FreeList 的分配请求早于向 RoB 的分配请求）
 DU 向其申请（还是留一个是否成功的信号），RoB 向其返还。
+初始留有 32 号之后的所有物理寄存器。
 
 - FlushPipeline
 从 RoB 引出，引至 IF，Dec，DU，RS，MI。

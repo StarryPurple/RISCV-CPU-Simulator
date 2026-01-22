@@ -2,6 +2,7 @@ package rvsim3
 
 import chisel3._
 import chisel3.util._
+
 class CircularBuffer[T <: Data](gen: T, val entries: Int, initData: Option[Seq[T]] = None) {
   require(entries > 0 && (entries & (entries - 1)) == 0, s"Entries shall be a power of 2 (got $entries)")
   val indexWidth = log2Ceil(entries)
@@ -39,11 +40,14 @@ class CircularBuffer[T <: Data](gen: T, val entries: Int, initData: Option[Seq[T
   
   def apply(idx: UInt): T = buffer(idx)
 
-  def getAndPopBack(): T = {
+  def back(): T = {
     val lastIdx = (tail - 1.U)(indexWidth - 1, 0)
     val data = WireDefault(buffer(lastIdx))
-    tail := tail - 1.U
     data
+  }
+
+  def popBack() = {
+    tail := tail - 1.U
   }
   
   def flush() = {

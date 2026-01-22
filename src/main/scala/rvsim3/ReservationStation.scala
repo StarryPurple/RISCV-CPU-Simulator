@@ -26,7 +26,7 @@ class ALUTask extends Bundle {
   val rs2Value = XData
 }
 
-class ReservationStation(numRSEntries: Int) extends Module {
+class ReservationStation extends Module {
   val io = IO(new Bundle {
     val duIn   = Flipped(Decoupled(new RSEntry))
     val aluOut = Decoupled(new ALUTask)
@@ -34,8 +34,8 @@ class ReservationStation(numRSEntries: Int) extends Module {
     val flush  = Flipped(Valid(new FlushPipeline))
   })
 
-  val poolValid = RegInit(VecInit(Seq.fill(numRSEntries)(false.B)))
-  val poolData  = Reg(Vec(numRSEntries, new RSEntry))
+  val poolValid = RegInit(VecInit(Seq.fill(NumRSEntries)(false.B)))
+  val poolData  = Reg(Vec(NumRSEntries, new RSEntry))
 
   // DU
   val freeIdx = BinaryPriorityEncoder(poolValid.map(!_))
@@ -50,7 +50,7 @@ class ReservationStation(numRSEntries: Int) extends Module {
 
   // 3. CDB
   when(io.cdbIn.valid) {
-    for (i <- 0 until numRSEntries) {
+    for (i <- 0 until NumRSEntries) {
       when(poolValid(i)) {
         when(!poolData(i).rs1Ready && poolData(i).rs1PhysIdx === io.cdbIn.bits.physIdx) {
           poolData(i).rs1Value := io.cdbIn.bits.data
@@ -65,7 +65,7 @@ class ReservationStation(numRSEntries: Int) extends Module {
   }
 
   // 4. ALU issue
-  val readyMask = VecInit((0 until numRSEntries).map { i =>
+  val readyMask = VecInit((0 until NumRSEntries).map { i =>
     poolValid(i) && poolData(i).rs1Ready && poolData(i).rs2Ready
   })
 
