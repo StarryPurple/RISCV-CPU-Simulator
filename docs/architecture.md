@@ -58,14 +58,15 @@ decInst: 该指令内容
 Flush 设置：无条件清空所有槽位。
 
 - ALU
-与 RS 相连，接通 CDB（发出者） 与 FlushPipeline（接收者）。
+与 RS，LSQ 相连，接通 CDB（发出者） 与 FlushPipeline（接收者）。
 根据 decInstr 的内容执行相应内容。应指令类型可能花费不同周期数。
+对于 Load/Store 指令，ALU 会通过直连线向 LSQ 传递地址讯息，通过 CDB 传递值信息。
 状态：sIdle - sBusy - sReady
 繁忙 / 准备好的数据未被 CDB 推送前，拒绝 RS 输入信号。
 Flush 设置：无条件终止运算，强制转为 sIdle 状态。
 
 - LSQ
-与 DU，MI，RoB 相连，接通 CDB（发出者，接收者）与 FlushPipeline（接收者）
+与 DU，MI，RoB，ALU 相连，接通 CDB（发出者，接收者）与 FlushPipeline（接收者）
 维护有一系列槽位（循环队列），每个槽位状态：
 isWrite, mask(byte, half, word)
 addr: isReady, value, robIdx
@@ -74,6 +75,7 @@ rd: targetRobIdx, readyToIssue
 读操作不需要 RoB 确认，但是要确认没有同地址的写操作排在前面。
 写操作必须在 addr 与 value 准备好，且 RoB 确认后执行。
 预留槽位满且不存在可推送槽位时，拒绝 DU 输入信号。
+对于 Load/Store 指令，ALU 会通过直连线向 LSQ 传递地址讯息，通过 CDB 传递值信息。
 Flush 设置：无条件清空所有槽位。
 
 - RoB

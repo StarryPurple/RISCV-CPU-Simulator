@@ -84,13 +84,13 @@ class DecodedInst extends Bundle {
     ))
   }
 
-  def isMul: Bool = itype >= InstrType.MUL && itype <= InstrType.MULHU
-  def isDiv: Bool = itype >= InstrType.DIV && itype <= InstrType.REMU
+  def isMul = itype >= InstrType.MUL && itype <= InstrType.MULHU
+  def isDiv = itype >= InstrType.DIV && itype <= InstrType.REMU
 
   def calcCycles: UInt = {
     MuxCase(1.U, Seq(
-      isMul -> 1.U,
-      isDiv -> 1.U
+      isMul -> 4.U,
+      isDiv -> 32.U
     ))
   }
 }

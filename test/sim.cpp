@@ -71,7 +71,7 @@ int main(int argc, char** argv) {
     cout << "Load complete." << endl;
 
     // --- 3. Simulation Loop ---
-    int maxCycles = 50000;
+    int maxCycles = 250000;
     int cycles = 0;
     bool halted = false;
 

@@ -32,7 +32,6 @@ class Predictor extends Module {
     btbTarget(updateIdx) := io.robIn.bits.actualPC
     btbTags(updateIdx)   := io.robIn.bits.instrAddr
     
-    // 更新 BHT 饱和计数器
     val oldCounter = bht(updateIdx)
     when(io.robIn.bits.actualTaken) {
       bht(updateIdx) := Mux(oldCounter === "b1111".U, "b1111".U, oldCounter + 1.U)
@@ -41,7 +40,6 @@ class Predictor extends Module {
     }
   }
 
-  // --- 2. 预测逻辑 (状态机) ---
   object State extends ChiselEnum {
     val sIdle, sPred = Value
   }
