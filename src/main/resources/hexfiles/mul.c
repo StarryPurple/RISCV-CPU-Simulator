@@ -10,3 +10,4 @@ int main() {
     }
     return res;
 }
+// RV32I, uses handwrite __mulsi3

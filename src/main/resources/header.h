@@ -1,3 +1,4 @@
+/*
 #ifndef HEADER_H
 #define HEADER_H
 
@@ -54,3 +55,4 @@ int __modsi3(int n, int d) {
 }
 
 #endif
+*/

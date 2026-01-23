@@ -52,6 +52,14 @@ class ArithmeticLogicUnit extends Module {
   val pc    = execReg.decInstr.pc
   val itype = execReg.decInstr.itype
 
+  val mulFull    = (op1.asSInt * op2.asSInt).asUInt       // S * S -> S (64-bit)
+  val muluFull   = (op1.asUInt * op2.asUInt)              // U * U -> U (64-bit)
+  val mulhsuFull = (op1.asSInt * Cat(0.U(1.W), op2).asSInt).asUInt 
+
+  val divByZero = op2 === 0.U
+  val divOverflow = (itype === InstrType.DIV || itype === InstrType.REM) && 
+                  (op1 === "h80000000".U) && (op2 === "hffffffff".U)
+
   val dataResult = MuxLookup(itype.asUInt, 0.U)(Seq(
     InstrType.ADD.asUInt   -> (op1 + op2),
     InstrType.ADDI.asUInt  -> (op1 + imm),
@@ -77,6 +85,19 @@ class ArithmeticLogicUnit extends Module {
     InstrType.SLTI.asUInt  -> Mux(op1.asSInt < imm.asSInt, 1.U, 0.U),
     InstrType.SLTU.asUInt  -> Mux(op1 < op2, 1.U, 0.U),
     InstrType.SLTIU.asUInt -> Mux(op1 < imm, 1.U, 0.U),
+
+    InstrType.MUL.asUInt    -> mulFull(31, 0),
+    InstrType.MULH.asUInt   -> mulFull(63, 32),
+    InstrType.MULHU.asUInt  -> muluFull(63, 32),
+    InstrType.MULHSU.asUInt -> mulhsuFull(63, 32),
+    InstrType.DIV.asUInt    -> Mux(divByZero, "hffffffff".U, 
+                               Mux(divOverflow, "h80000000".U, 
+                               (op1.asSInt / op2.asSInt).asUInt)),
+    InstrType.DIVU.asUInt   -> Mux(divByZero, "hffffffff".U, (op1 / op2)),
+    InstrType.REM.asUInt    -> Mux(divByZero, op1, 
+                               Mux(divOverflow, 0.U, 
+                               (op1.asSInt % op2.asSInt).asUInt)),
+    InstrType.REMU.asUInt   -> Mux(divByZero, op1, (op1 % op2)),
 
     InstrType.JAL.asUInt   -> (pc + 4.U),
     InstrType.JALR.asUInt  -> (pc + 4.U)

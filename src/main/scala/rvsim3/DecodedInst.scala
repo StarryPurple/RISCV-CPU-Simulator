@@ -11,6 +11,8 @@ object InstrType extends ChiselEnum {
   val SB, SH, SW = Value
   val ADDI, SLTI, SLTIU, XORI, ORI, ANDI, SLLI, SRLI, SRAI = Value
   val ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND = Value
+  val MUL, MULH, MULHSU, MULHU = Value
+  val DIV, DIVU, REM, REMU = Value
 }
 
 class DecodedInst extends Bundle {
@@ -32,20 +34,13 @@ class DecodedInst extends Bundle {
     val uImm = Cat(inst(31, 12), 0.U(12.W))
     val jImm = Cat(Fill(11, inst(31)), inst(31), inst(19, 12), inst(20), inst(30, 21), 0.U(1.W))
     val shamt = inst(24, 20)
-    val finalImm = MuxCase(iImm, Seq(
+    MuxCase(iImm, Seq(
       (itype === InstrType.LUI || itype === InstrType.AUIPC) -> uImm,
       isJal -> jImm,
       isB   -> bImm,
       isStore -> sImm,
       (itype === InstrType.SLLI || itype === InstrType.SRLI || itype === InstrType.SRAI) -> shamt
     ))
-    /*
-    printf("[DEBUG_BIT] inst(31)=%d inst(7)=%d inst(30,25)=%x inst(11,8)=%x\n", 
-        inst(31), inst(7), inst(30,25), inst(11,8))
-    printf("[DEBUG_IMM] PC=%d Instr=%x itype=%d isB=%b bImm=%x finalImm=%x\n",
-           pc, inst, itype.asUInt, isB, bImm, finalImm)
-    */
-    finalImm
   }
 
   def hasSrc1: Bool = {
@@ -54,20 +49,18 @@ class DecodedInst extends Bundle {
   }
 
   def hasSrc2: Bool = {
-    VecInit(
-      InstrType.ADD, InstrType.SUB, InstrType.SLL, InstrType.SLT, InstrType.SLTU,
-      InstrType.XOR, InstrType.SRL, InstrType.SRA, InstrType.OR, InstrType.AND,
-      InstrType.BEQ, InstrType.BNE, InstrType.BLT, InstrType.BGE, InstrType.BLTU, InstrType.BGEU,
-      InstrType.SB,  InstrType.SH,  InstrType.SW
-    ).exists(_ === itype)
+    (itype >= InstrType.BEQ && itype <= InstrType.BGEU) || // Branch
+    (itype >= InstrType.SB  && itype <= InstrType.SW)   || // Store
+    (itype >= InstrType.ADD && itype <= InstrType.AND)  || // R-Type Arithmetic
+    isMul || isDiv                                         // M-Extension
   }
 
   def writeRf: Bool = {
-    val noWrite = VecInit(
+    val actuallyWrites = !VecInit(
       InstrType.BEQ, InstrType.BNE, InstrType.BLT, InstrType.BGE, InstrType.BLTU, InstrType.BGEU,
       InstrType.SB,  InstrType.SH,  InstrType.SW,  InstrType.INVALID
     ).exists(_ === itype)
-    !noWrite && (rd =/= 0.U)
+    actuallyWrites && (rd =/= 0.U)
   }
 
   def isLoad   = itype >= InstrType.LB  && itype <= InstrType.LHU
@@ -91,18 +84,13 @@ class DecodedInst extends Bundle {
     ))
   }
 
-  def isMul: Bool = {
-    false.B
-  }
-
-  def isDiv: Bool = {
-    false.B
-  }
+  def isMul: Bool = itype >= InstrType.MUL && itype <= InstrType.MULHU
+  def isDiv: Bool = itype >= InstrType.DIV && itype <= InstrType.REMU
 
   def calcCycles: UInt = {
     MuxCase(1.U, Seq(
-      isMul -> 4.U,
-      isDiv -> 32.U
+      isMul -> 1.U,
+      isDiv -> 1.U
     ))
   }
 }
@@ -142,13 +130,23 @@ object DecodedInst {
         "b001".U -> InstrType.SLLI,
         "b101".U -> Mux(f7(5), InstrType.SRAI, InstrType.SRLI)
       )),
-      "b0110011".U -> MuxLookup(f3, InstrType.INVALID)(Seq(
-        "b000".U -> Mux(f7(5), InstrType.SUB, InstrType.ADD),
-        "b001".U -> InstrType.SLL,  "b010".U -> InstrType.SLT,
-        "b011".U -> InstrType.SLTU, "b100".U -> InstrType.XOR,
-        "b101".U -> Mux(f7(5), InstrType.SRA, InstrType.SRL),
-        "b110".U -> InstrType.OR,   "b111".U -> InstrType.AND
-      ))
+      "b0110011".U -> {
+        Mux(f7 === "b0000001".U,
+          MuxLookup(f3, InstrType.INVALID)(Seq(
+            "b000".U -> InstrType.MUL,    "b001".U -> InstrType.MULH,
+            "b010".U -> InstrType.MULHSU, "b011".U -> InstrType.MULHU,
+            "b100".U -> InstrType.DIV,    "b101".U -> InstrType.DIVU,
+            "b110".U -> InstrType.REM,    "b111".U -> InstrType.REMU
+          )),
+          MuxLookup(f3, InstrType.INVALID)(Seq(
+            "b000".U -> Mux(f7(5), InstrType.SUB, InstrType.ADD),
+            "b001".U -> InstrType.SLL,  "b010".U -> InstrType.SLT,
+            "b011".U -> InstrType.SLTU, "b100".U -> InstrType.XOR,
+            "b101".U -> Mux(f7(5), InstrType.SRA, InstrType.SRL),
+            "b110".U -> InstrType.OR,   "b111".U -> InstrType.AND
+          ))
+        )
+      }
     ))
     d
   }

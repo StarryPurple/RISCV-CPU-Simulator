@@ -4,7 +4,8 @@ import sys
 
 CC = "riscv64-unknown-elf-gcc"
 OBJCOPY = "riscv64-unknown-elf-objcopy"
-CFLAGS = "-march=rv32i -mabi=ilp32 -static -nostdlib -O0"
+CFLAGS = "-march=rv32im -mabi=ilp32 -static -nostdlib -O0"
+LIBGCC_PATH = subprocess.run(["riscv64-unknown-elf-gcc", "-print-libgcc-file-name"], capture_output=True, text=True).stdout.strip()
 LNK_SCRIPT = "linker.ld"
 CRT0 = "crt0.s"
 HEADER = "header.h"
@@ -21,7 +22,7 @@ def run_cmd(cmd):
         sys.exit(1)
 
 def main():
-    run_cmd(f"{CC} {CFLAGS} -include {HEADER} -T {LNK_SCRIPT} {CRT0} {SRC} -o {OUTPUT_ELF}")
+    run_cmd(f"{CC} {CFLAGS} -include {HEADER} -T {LNK_SCRIPT} {CRT0} {SRC} -o {OUTPUT_ELF} {LIBGCC_PATH}")
     
     run_cmd(f"riscv64-unknown-elf-objdump -d {OUTPUT_ELF} >{OUTPUT_ELF_TXT}")
 
